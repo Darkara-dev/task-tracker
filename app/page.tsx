@@ -1,0 +1,131 @@
+"use client";
+
+import { FormEvent, useEffect, useMemo, useState } from "react";
+
+declare global { interface Window { Telegram?: { WebApp?: { initData: string; initDataUnsafe?: { user?: { id?: number; first_name?: string; last_name?: string; username?: string }; start_param?: string }; ready: () => void; expand: () => void; setHeaderColor?: (color: string) => void; setBackgroundColor?: (color: string) => void } } } }
+
+type Room = { id: string; name: string; gift_budget: number; draw_at?: string; status: string; invite_code: string; role?: string };
+type Player = { telegram_id: number; full_name: string; role: string };
+type Wishlist = { source_url?: string; title?: string; description?: string; color?: string; size?: string; notes?: string; product_url?: string; price?: string };
+type RoomData = { room: Room; players: Player[]; wishlist?: Wishlist; recipient?: { full_name: string; wishlist?: Wishlist } | null; exclusions: Array<[number, number]>; role: string };
+
+const demoRoom: Room = { id: "demo", name: "Новогоднее чудо", gift_budget: 2500, draw_at: "2026-12-15", status: "open", invite_code: "sneg-2026", role: "admin" };
+const demoPlayers = ["Аня Лебедева", "Миша Котов", "Саша Орлова", "Дима Волков"].map((full_name, i) => ({ telegram_id: i + 1, full_name, role: i === 0 ? "admin" : "player" }));
+const tg = () => window.Telegram?.WebApp;
+
+export default function Home() {
+  const [initData, setInitData] = useState("");
+  const [userName, setUserName] = useState("Санта");
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [active, setActive] = useState<RoomData | null>(null);
+  const [screen, setScreen] = useState<"home" | "room" | "wishlist" | "admin" | "create" | "join">("home");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [demo, setDemo] = useState(true);
+  const [joinCode, setJoinCode] = useState("");
+
+  useEffect(() => {
+    const app = tg();
+    app?.ready(); app?.expand(); app?.setHeaderColor?.("#f6f3ed"); app?.setBackgroundColor?.("#f6f3ed");
+    setInitData(app?.initData ?? "");
+    const name = [app?.initDataUnsafe?.user?.first_name, app?.initDataUnsafe?.user?.last_name].filter(Boolean).join(" ");
+    if (name) setUserName(name);
+    if (app?.initData) { setDemo(false); void loadRooms(app.initData); }
+    const start = app?.initDataUnsafe?.start_param ?? "";
+    if (start.startsWith("join-")) { setJoinCode(start.slice(5)); setScreen("join"); }
+  }, []);
+
+  async function loadRooms(auth = initData) {
+    try { const res = await fetch("/api/rooms", { headers: { "x-telegram-init-data": auth } }); const json = await res.json(); if (res.ok) setRooms(json.rooms ?? []); }
+    catch { setNotice("Не удалось загрузить комнаты"); }
+  }
+  async function openRoom(room: Room) {
+    if (demo || room.id === "demo") {
+      setActive({ room, players: demoPlayers, role: "admin", exclusions: [[2, 3]], wishlist: { title: "Идеи к празднику", notes: "Люблю книги и уютные вещи" } }); setScreen("room"); return;
+    }
+    setBusy(true);
+    try { const res = await fetch(`/api/rooms/${room.id}`, { headers: { "x-telegram-init-data": initData } }); const json = await res.json(); if (!res.ok) throw new Error(json.error); setActive(json); setScreen("room"); }
+    catch (error) { setNotice(error instanceof Error ? error.message : "Не удалось открыть комнату"); }
+    finally { setBusy(false); }
+  }
+  const allRooms = useMemo(() => demo ? [demoRoom, ...rooms.filter(r => r.id !== "demo")] : rooms, [demo, rooms]);
+
+  async function createRoom(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); const form = new FormData(event.currentTarget); setBusy(true);
+    if (demo) {
+      const room = { ...demoRoom, id: `demo-${Date.now()}`, name: String(form.get("name")), gift_budget: Number(form.get("budget")) || 0, invite_code: Math.random().toString(36).slice(2, 10) };
+      setRooms(prev => [room, ...prev]); setNotice("Комната создана в режиме предпросмотра"); setScreen("home"); setBusy(false); return;
+    }
+    try { const res = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json", "x-telegram-init-data": initData }, body: JSON.stringify({ name: form.get("name"), budget: form.get("budget"), drawAt: form.get("drawAt"), fullName: form.get("fullName") }) }); const json = await res.json(); if (!res.ok) throw new Error(json.error); await loadRooms(); setScreen("home"); }
+    catch (error) { setNotice(error instanceof Error ? error.message : "Не удалось создать комнату"); }
+    finally { setBusy(false); }
+  }
+  async function joinRoom(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); const fullName = String(new FormData(event.currentTarget).get("fullName") ?? "");
+    if (demo) { setNotice("Приглашения заработают после подключения бота"); return; }
+    setBusy(true);
+    try { const res = await fetch("/api/join", { method: "POST", headers: { "content-type": "application/json", "x-telegram-init-data": initData }, body: JSON.stringify({ code: joinCode, fullName }) }); const json = await res.json(); if (!res.ok) throw new Error(json.error); await loadRooms(); setNotice("Вы присоединились к комнате!"); setScreen("home"); }
+    catch (error) { setNotice(error instanceof Error ? error.message : "Не удалось присоединиться"); }
+    finally { setBusy(false); }
+  }
+  function inviteLink(room: Room) { const username = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME; return username ? `https://t.me/${username}?startapp=join-${room.invite_code}` : `Код приглашения: ${room.invite_code}`; }
+  async function copyInvite(room: Room) { await navigator.clipboard?.writeText(inviteLink(room)); setNotice("Приглашение скопировано"); }
+  async function saveWishlist(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (!active) return;
+    const form = new FormData(event.currentTarget); const wishlist: Wishlist = Object.fromEntries([...form.entries()].map(([key, value]) => [key, String(value)] as const));
+    if (demo || active.room.id.startsWith("demo")) { setActive({ ...active, wishlist }); setNotice("Вишлист сохранён в предпросмотре"); setScreen("room"); return; }
+    setBusy(true);
+    try { const res = await fetch(`/api/rooms/${active.room.id}`, { method: "PUT", headers: { "content-type": "application/json", "x-telegram-init-data": initData }, body: JSON.stringify({ action: "wishlist", wishlist }) }); const json = await res.json(); if (!res.ok) throw new Error(json.error); setActive({ ...active, wishlist }); setNotice("Вишлист сохранён"); setScreen("room"); }
+    catch (error) { setNotice(error instanceof Error ? error.message : "Не удалось сохранить вишлист"); }
+    finally { setBusy(false); }
+  }
+  const title = screen === "room" && active ? active.room.name : screen === "wishlist" ? "Мой вишлист" : screen === "admin" ? "Настройки комнаты" : screen === "create" ? "Новая комната" : screen === "join" ? "Войти в игру" : "Тайный Санта";
+
+  return <main className="shell">
+    <header className="topbar"><button className="brand" onClick={() => setScreen("home")} aria-label="На главную"><span className="brand-mark">✳</span><span>своим кругом</span></button><button className="avatar" aria-label="Профиль пользователя">{userName.slice(0, 1).toUpperCase()}</button></header>
+    {screen !== "home" && <div className="subnav"><button className="back" onClick={() => setScreen(screen === "wishlist" || screen === "admin" ? "room" : "home")}>←</button><span>{title}</span><span className="small-mark">✳</span></div>}
+
+    {screen === "home" && <>
+      <section className="hero"><div className="hero-label"><span className="dot" /> САМЫЙ ТЁПЛЫЙ ОБМЕН ГОДА</div><h1>Подарки,<br/><em>которые</em> радуют.</h1><p>Соберите своих в одной комнате — и пусть праздник начнётся.</p><div className="hero-art" aria-hidden="true"><span className="sparkle sparkle-a">✳</span><span className="gift gift-one">🎁</span><span className="gift gift-two">🎄</span><span className="sparkle sparkle-b">✦</span><span className="art-line"/></div><button className="button button-dark hero-cta" onClick={() => setScreen("create")}>Создать комнату <span>↗</span></button></section>
+      <section className="rooms-section"><div className="section-heading"><div><div className="eyebrow">ВАШИ ИГРЫ</div><h2>Комнаты <span className="count">{allRooms.length.toString().padStart(2, "0")}</span></h2></div><button className="icon-button" onClick={() => { setJoinCode(""); setScreen("join"); }} aria-label="Ввести код комнаты">↗</button></div>
+        {allRooms.length ? <div className="room-list">{allRooms.map((room, i) => <button className="room-row" key={room.id} onClick={() => void openRoom(room)}><span className={`room-icon room-icon-${i % 3}`}>{["✳", "❄", "✷"][i % 3]}</span><span className="room-copy"><strong>{room.name}</strong><small>{room.gift_budget ? `Бюджет до ${room.gift_budget.toLocaleString("ru-RU")} ₽` : "Без ограничения бюджета"} · {room.status === "drawn" ? "Распределение готово" : "Игра идёт"}</small></span><span className="room-arrow">↗</span></button>)}</div> : <div className="empty"><div className="empty-star">✳</div><strong>Пока тихо</strong><p>Создайте свою первую комнату или присоединитесь к друзьям по приглашению.</p><button className="text-button" onClick={() => setScreen("join")}>Есть приглашение? <span>→</span></button></div>}
+      </section>
+      <footer className="footer"><span>Сделано для маленьких чудес</span><span>✳</span><span>01 / 25</span></footer>
+      {demo && <button className="demo-note" onClick={() => setNotice("Демонстрация интерфейса. Для реальной игры подключите Supabase и Telegram-бота.")}>Предпросмотр интерфейса <span>ⓘ</span></button>}
+    </>}
+
+    {screen === "room" && active && <section className="content-page"><div className="room-cover"><div className="room-cover-top"><span>СЕЗОН ПОДАРКОВ</span><span>✳</span></div><div className="cover-gifts">🎄　🎁</div><div className="room-cover-bottom"><h1>{active.room.name}</h1><p>{active.room.gift_budget ? `Подарок до ${active.room.gift_budget.toLocaleString("ru-RU")} ₽` : "Пусть фантазия решает"}{active.room.draw_at ? ` · жеребьёвка ${new Date(active.room.draw_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}` : ""}</p></div></div>
+        <div className="section-heading compact"><div><div className="eyebrow">В КРУГУ</div><h2>Участники <span className="count">{active.players.length.toString().padStart(2, "0")}</span></h2></div>{active.role === "admin" && <button className="icon-button" aria-label="Настройки" onClick={() => setScreen("admin")}>☷</button>}</div>
+        <div className="participant-list">{active.players.map((player, i) => <div className="participant" key={player.telegram_id}><span className={`person-avatar person-${i % 5}`}>{player.full_name.slice(0, 1)}</span><span><strong>{player.full_name}</strong><small>{player.role === "admin" ? "Организатор" : "Участник"}</small></span>{player.telegram_id === Number(tg()?.initDataUnsafe?.user?.id) && <span className="you-badge">ЭТО ВЫ</span>}</div>)}</div>
+        {active.recipient && <div className="match-card"><div className="eyebrow">ВАШ ТАЙНЫЙ САНТА-МАТЧ</div><h2>Вы дарите подарок<br/><em>{active.recipient.full_name}</em></h2>{active.recipient.wishlist?.title && <p>Вишлист: {active.recipient.wishlist.title}</p>}<span className="match-star">✳</span></div>}
+        <button className="button button-dark full" onClick={() => setScreen("wishlist")}>✳　 Мой вишлист <span>↗</span></button>
+        <button className="button button-light full" onClick={() => void copyInvite(active.room)}>Поделиться приглашением <span>⤴</span></button>
+        <div className="room-footnote">Жеребьёвка тайная — ваш получатель известен только вам.</div>
+      </section>}
+
+    {screen === "wishlist" && <section className="form-page"><div className="form-intro"><div className="eyebrow">ПУСТЬ САНТЕ БУДЕТ ПРОЩЕ</div><h1>Немного<br/><em>подсказок.</em></h1><p>Можно оставить ссылку на готовый список или добавить идеи прямо здесь.</p></div><form onSubmit={saveWishlist} className="form-stack"><label>Ссылка на вишлист <input name="source_url" type="url" placeholder="https://…" defaultValue={active?.wishlist?.source_url}/></label><div className="form-divider"><span>ИЛИ ОДНА ИДЕЯ</span></div><label>Что бы вы хотели? <input name="title" placeholder="Например, хорошая книга" defaultValue={active?.wishlist?.title}/></label><label>Расскажите подробнее <textarea name="description" rows={3} placeholder="Жанр, настроение, автор…" defaultValue={active?.wishlist?.description}/></label><div className="form-grid"><label>Цвет<input name="color" placeholder="Любой" defaultValue={active?.wishlist?.color}/></label><label>Размер<input name="size" placeholder="Например, M" defaultValue={active?.wishlist?.size}/></label></div><label>Ссылка на товар <input name="product_url" type="url" placeholder="https://…" defaultValue={active?.wishlist?.product_url}/></label><div className="form-grid"><label>Цена, ₽<input name="price" inputMode="decimal" placeholder="Необязательно" defaultValue={active?.wishlist?.price}/></label><label>Другие пожелания<input name="notes" placeholder="Материалы, детали…" defaultValue={active?.wishlist?.notes}/></label></div><button disabled={busy} className="button button-dark full">Сохранить вишлист <span>↗</span></button></form></section>}
+
+    {screen === "create" && <section className="form-page"><div className="form-intro"><div className="eyebrow">ПРИДУМАЙТЕ ВАШУ ТРАДИЦИЮ</div><h1>Всё начинается<br/><em>с комнаты.</em></h1><p>Дайте игре имя, задайте комфортный бюджет и пригласите близких.</p></div><form onSubmit={createRoom} className="form-stack"><label>Название комнаты<input required name="name" placeholder="Например, Новый год в офисе" maxLength={70}/></label><label>Ваше имя и фамилия<input required name="fullName" placeholder="Александра Петрова" defaultValue={userName === "Санта" ? "" : userName}/></label><label>Бюджет подарка, ₽<input name="budget" inputMode="numeric" placeholder="Например, 2 000"/></label><label>Дата жеребьёвки<input name="drawAt" type="date"/></label><div className="form-tip"><span>✳</span><p>Вы станете организатором: сможете настроить пары, которым нельзя дарить друг другу.</p></div><button disabled={busy} className="button button-dark full">Создать комнату <span>↗</span></button></form></section>}
+
+    {screen === "join" && <section className="form-page"><div className="form-intro"><div className="eyebrow">ВАС УЖЕ ЖДУТ</div><h1>Входите,<br/><em>будет уютно.</em></h1><p>Откройте ссылку-приглашение или введите код комнаты.</p></div><form onSubmit={joinRoom} className="form-stack"><label>Код приглашения<input required value={joinCode} onChange={e => setJoinCode(e.target.value)} placeholder="Например, ab12cd34"/></label><label>Ваше имя и фамилия<input required name="fullName" placeholder="Александра Петрова" defaultValue={userName === "Санта" ? "" : userName}/></label><div className="form-tip"><span>✳</span><p>После входа добавьте вишлист — так вашему Санте будет проще выбрать подарок.</p></div><button disabled={busy} className="button button-dark full">Присоединиться <span>↗</span></button></form></section>}
+
+    {screen === "admin" && active && <AdminPage active={active} demo={demo} initData={initData} setActive={setActive} setNotice={setNotice} setBusy={setBusy} busy={busy} />}
+    {notice && <div className="toast" role="status"><span>✳</span>{notice}<button onClick={() => setNotice("")} aria-label="Закрыть">×</button></div>}
+    {busy && <div className="loading" role="status">Секундочку…</div>}
+  </main>;
+}
+
+function AdminPage({ active, demo, initData, setActive, setNotice, setBusy, busy }: { active: RoomData; demo: boolean; initData: string; setActive: (x: RoomData) => void; setNotice: (x: string) => void; setBusy: (x: boolean) => void; busy: boolean }) {
+  const [pairs, setPairs] = useState<Array<[number, number]>>(active.exclusions);
+  const [first, setFirst] = useState(""); const [second, setSecond] = useState("");
+  async function update(action: "exclusions" | "draw", values?: unknown) {
+    if (demo || active.room.id.startsWith("demo")) { setNotice(action === "draw" ? "Жеребьёвка доступна в подключённой версии" : "Пары сохранены в предпросмотре"); if (action === "exclusions") setActive({ ...active, exclusions: pairs }); return; }
+    setBusy(true);
+    try { const res = await fetch(`/api/rooms/${active.room.id}`, { method: "PUT", headers: { "content-type": "application/json", "x-telegram-init-data": initData }, body: JSON.stringify({ action, ...(action === "exclusions" ? { pairs: values } : {}) }) }); const json = await res.json(); if (!res.ok) throw new Error(json.error); if (action === "draw") { setNotice(`Жеребьёвка готова — ${json.count} подарков найдут адресатов!`); setActive({ ...active, room: { ...active.room, status: "drawn" } }); } else { setActive({ ...active, exclusions: pairs }); setNotice("Исключения сохранены"); } }
+    catch (error) { setNotice(error instanceof Error ? error.message : "Не удалось сохранить"); }
+    finally { setBusy(false); }
+  }
+  function addPair() { const a = Number(first), b = Number(second); if (!a || !b || a === b || pairs.some(p => (p[0] === a && p[1] === b) || (p[0] === b && p[1] === a))) return; setPairs([...pairs, [a, b]]); setFirst(""); setSecond(""); }
+  return <section className="form-page"><div className="form-intro"><div className="eyebrow">ВАША КОМНАТА · ОРГАНИЗАТОР</div><h1>Всё <em>по парам.</em></h1><p>Отметьте людей, которым нельзя дарить друг другу. Например, близких родственников из одной семьи.</p></div><div className="form-stack"><div className="pair-select"><label>Первый участник<select value={first} onChange={e => setFirst(e.target.value)}><option value="">Выберите человека</option>{active.players.map(p => <option key={p.telegram_id} value={p.telegram_id}>{p.full_name}</option>)}</select></label><span className="pair-cross">×</span><label>Второй участник<select value={second} onChange={e => setSecond(e.target.value)}><option value="">Выберите человека</option>{active.players.map(p => <option key={p.telegram_id} value={p.telegram_id}>{p.full_name}</option>)}</select></label><button className="button button-light full" type="button" onClick={addPair}>+ Добавить исключение</button></div>{pairs.length > 0 && <div className="pair-list">{pairs.map((pair, i) => <div className="pair-row" key={`${pair[0]}-${pair[1]}`}><span>{active.players.find(p => p.telegram_id === pair[0])?.full_name ?? pair[0]}</span><i>×</i><span>{active.players.find(p => p.telegram_id === pair[1])?.full_name ?? pair[1]}</span><button onClick={() => setPairs(pairs.filter((_, n) => n !== i))} aria-label="Удалить пару">×</button></div>)}</div>}<button disabled={busy} className="button button-light full" onClick={() => void update("exclusions", pairs)}>Сохранить пары <span>✓</span></button><div className="form-tip"><span>✳</span><p>Перед жеребьёвкой убедитесь, что все успели вступить в комнату и добавить пожелания.</p></div><button disabled={busy || active.room.status === "drawn" || active.players.length < 3} className="button button-dark full" onClick={() => void update("draw")}><span>Провести тайную жеребьёвку</span><span>✳</span></button>{active.room.status === "drawn" && <p className="inline-note">Жеребьёвка уже проведена. Каждый участник увидит только своего получателя.</p>}{active.players.length < 3 && <p className="inline-note">Для жеребьёвки нужно минимум три участника.</p>}</div></section>;
+}
+
