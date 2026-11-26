@@ -4,10 +4,10 @@ Mini App для игры в Тайного Санту: комнаты и ссы�
 
 ## Для запуска
 
-1. Создайте отдельный Supabase-проект. В SQL Editor выполните `supabase/schema.sql`.
-2. Скопируйте `.env.example` в `.env.local`, заполните URL проекта, `service_role` key, токен Telegram-бота и его username. Ключ `service_role` используется только сервером и никогда не должен иметь префикс `NEXT_PUBLIC_`.
-3. Создайте Telegram-бота через BotFather, настройте Mini App URL на HTTPS адрес приложения и задайте username в `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME`.
-4. Установите зависимости командой `npm install`, запустите `npm run dev`; для публикации подключите репозиторий к Vercel и задайте те же переменные окружения.
+1. В проекте Supabase откройте SQL Editor и выполните `supabase/schema.sql`. Новые таблицы называются `santa_*`; существующие таблицы приложения не меняются. Для текущей установки схема уже добавлена в проект `mtcosuqzaamqmprmbeyr`.
+2. В Vercel укажите `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `TELEGRAM_BOT_TOKEN` и `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME`. URL базы можно открыть в настройках Supabase; `service_role` key используйте только на сервере, не добавляйте префикс `NEXT_PUBLIC_` и не отправляйте его в чат.
+3. Создайте Telegram-бота через BotFather, задайте Mini App URL на HTTPS адрес приложения и внесите его username в `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME`.
+4. Для локального запуска скопируйте `.env.example` в `.env.local`, заполните значения и выполните `npm install`, затем `npm run dev`.
 
 Пары в базе связываются с Telegram ID внутри конкретной комнаты. Все таблицы закрыты от прямого доступа браузера через Supabase; API проверяет подпись и свежесть `initData` Telegram. Организатор может настроить исключения и запустить жеребьёвку один раз. Алгоритм не допускает самоназначение и назначает каждого участника ровно одному получателю. После жеребьёвки участник видит только своего получателя и его пожелания.
 
