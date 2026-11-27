@@ -19,6 +19,7 @@ export default function Home() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [active, setActive] = useState<RoomData | null>(null);
   const [screen, setScreen] = useState<"home" | "room" | "wishlist" | "admin" | "create" | "join">("home");
+  const [booting, setBooting] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [demo, setDemo] = useState(true);
@@ -28,11 +29,11 @@ export default function Home() {
 
   useEffect(() => {
     const app = tg();
-    app?.ready(); app?.expand(); app?.setHeaderColor?.("#f6f3ed"); app?.setBackgroundColor?.("#f6f3ed");
+    app?.ready(); app?.expand(); app?.setHeaderColor?.("#0F3D2E"); app?.setBackgroundColor?.("#0F3D2E");
     setInitData(app?.initData ?? "");
     const name = [app?.initDataUnsafe?.user?.first_name, app?.initDataUnsafe?.user?.last_name].filter(Boolean).join(" ");
     if (name) setUserName(name);
-    if (app?.initData) { setDemo(false); void loadRooms(app.initData); }
+    if (app?.initData) { setDemo(false); void Promise.all([loadRooms(app.initData), new Promise(resolve => window.setTimeout(resolve, 1800))]).finally(() => setBooting(false)); } else { window.setTimeout(() => setBooting(false), 1800); }
     const start = app?.initDataUnsafe?.start_param ?? "";
     if (start.startsWith("join-")) { setJoinCode(start.slice(5)); setScreen("join"); }
   }, []);
@@ -87,8 +88,10 @@ export default function Home() {
     <header className="topbar"><button className="brand" onClick={() => setScreen("home")} aria-label="На главную"><img className="brand-mark" src="/assets/illustrations/app-icon.webp" alt="" /><span>Тайный Санта</span></button><button className="avatar" aria-label="Профиль пользователя">{userName.slice(0, 1).toUpperCase()}</button></header>
     {screen !== "home" && <div className="subnav"><button className="back" onClick={() => setScreen(screen === "wishlist" || screen === "admin" ? "room" : "home")}>←</button><span>{title}</span><span className="small-mark">✳</span></div>}
 
+    {booting && <div className="splash-screen" role="status"><img src="/assets/illustrations/santa-shh.webp" width="210" height="210" alt="" /><h1>Тайный Санта</h1><p>{tg()?.initDataUnsafe?.start_param ? "Открываем приглашение…" : "Тсс… готовим подарки"}</p><div className="candy-progress"><span/></div><small>Загружаем приложение</small></div>}
+
     {screen === "home" && <>
-      <section className="hero"><div className="hero-label"><span className="dot" /> ВРЕМЯ ДАРИТЬ ЧУДЕСА</div><img className="hero-illustration" src="/assets/illustrations/home-tree.webp" width="300" height="245" alt="" /><h1>Тайный Санта</h1><p>Тяните имена, дарите подарки и храните секрет до праздника</p><button className="button button-dark hero-cta" onClick={() => setScreen("create")}>Создать комнату <span>＋</span></button><button className="button button-light full" onClick={() => { setJoinCode(""); setScreen("join"); }}>Присоединиться к комнате <span>↗</span></button></section>
+      <section className="hero"><div className="hero-label"><span className="dot" /> ВРЕМЯ ДАРИТЬ ЧУДЕСА</div><img className="hero-illustration" src="/assets/illustrations/home-tree.webp" width="300" height="245" alt="" /><h1>Тайный Санта</h1><p>Тяните имена, дарите подарки и храните секрет до праздника</p><button className="button button-dark hero-cta" onClick={() => { setCreateStep(1); setCreateDraft({ name: "", budget: "", drawAt: "", unlimited: false }); setScreen("create"); }}>Создать комнату <span>＋</span></button><button className="button button-light full" onClick={() => { setJoinCode(""); setScreen("join"); }}>Присоединиться к комнате <span>↗</span></button></section>
       <section className="rooms-section"><div className="section-heading"><div><div className="eyebrow">ВАШИ ИГРЫ</div><h2>Комнаты <span className="count">{allRooms.length.toString().padStart(2, "0")}</span></h2></div><button className="icon-button" onClick={() => { setJoinCode(""); setScreen("join"); }} aria-label="Ввести код комнаты">↗</button></div>
         {allRooms.length ? <div className="room-list">{allRooms.map((room, i) => <button className="room-row" key={room.id} onClick={() => void openRoom(room)}><span className={`room-icon room-icon-${i % 3}`}>{["✳", "❄", "✷"][i % 3]}</span><span className="room-copy"><strong>{room.name}</strong><small>{room.gift_budget ? `Бюджет до ${room.gift_budget.toLocaleString("ru-RU")} ₽` : "Без ограничения бюджета"} · {room.status === "drawn" ? "Распределение готово" : "Игра идёт"}</small></span><span className="room-arrow">↗</span></button>)}</div> : <div className="empty"><img className="empty-illustration" src="/assets/illustrations/home-tree.webp" width="180" height="150" alt="" /><strong>Пока тихо</strong><p>Создайте свою первую комнату или присоединитесь к друзьям по приглашению.</p><button className="text-button" onClick={() => setScreen("join")}>Есть приглашение? <span>→</span></button></div>}
       </section>
