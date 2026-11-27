@@ -84,6 +84,11 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (!active?.room.id) return;
+    setShowRecipient(localStorage.getItem(`santa-revealed-${active.room.id}`) === "1");
+  }, [active?.room.id]);
+
+  useEffect(() => {
     if (screen !== "join" || !joinCode.trim() || !initData) { setJoinPreview(null); return; }
     const code = parseInviteCode(joinCode);
     let canceled = false;
@@ -227,8 +232,8 @@ export default function Home() {
   async function copyInvite(room: Room) {
     const budget = room.budget_unlimited || !room.gift_budget ? "без ограничений" : `до ${room.gift_budget.toLocaleString("ru-RU")} ₽`;
     const text = `🎅 Привет! Зову тебя в Тайного Санту «${room.name}».
-Бюджет подарка: ${budget}.\
-Жми на ссылку, заполни вишлист и жди, кому достанется твоё имя 🎁\
+Бюджет подарка: ${budget}.
+Жми на ссылку, заполни вишлист и жди, кому достанется твоё имя 🎁
 ${inviteLink(room)}`;
     try { await navigator.clipboard.writeText(text); } catch { const input = document.createElement("textarea"); input.value = text; document.body.append(input); input.select(); const copied = document.execCommand("copy"); input.remove(); if (!copied) (tg() as any)?.openTelegramLink?.(`https://t.me/share/url?url=${encodeURIComponent(inviteLink(room))}&text=${encodeURIComponent(text)}`); }
     (tg() as any)?.HapticFeedback?.notificationOccurred?.("success"); setNotice("Приглашение скопировано. Отправьте его друзьям");
