@@ -5,7 +5,7 @@ import { randomBytes } from "node:crypto";
 export async function GET(request: NextRequest) {
   try {
     const user = telegramUser(request); const db = supabase();
-    const { data, error } = await db.from("santa_participants").select("room_id, role, santa_rooms(id, name, gift_budget, draw_at, status, invite_code)").eq("telegram_id", user.id);
+    const { data, error } = await db.from("santa_participants").select("room_id, role, santa_rooms(id, name, gift_budget, budget_unlimited, draw_at, status, invite_code)").eq("telegram_id", user.id);
     if (error) throw error;
     return Response.json({ rooms: (data ?? []).map((entry: any) => ({ ...entry.santa_rooms, role: entry.role })) });
   } catch (error) { return fail(error, 401); }
@@ -22,9 +22,23 @@ export async function POST(request: NextRequest) {
       p_gift_budget: Math.max(0, Number(body.budget) || 0), p_draw_at: body.drawAt || null, p_full_name: fullName,
     });
     if (error) throw error;
-    const { data: room, error: roomError } = await db.from("santa_rooms").select("id, name, gift_budget, draw_at, status, invite_code").eq("id", roomId).single();
+    const { error: budgetError } = await db.from("santa_rooms").update({ budget_unlimited: Boolean(body.budgetUnlimited) }).eq("id", roomId);
+    if (budgetError) throw budgetError;
+    const { data: avatarId, error: avatarError } = await db.rpc("assign_santa_avatar", { p_room_id: roomId, p_telegram_id: user.id, p_current: Number(body.avatarId) || null });
+    if (avatarError) throw avatarError;
+    if (body.wishlist) {
+      const wish = body.wishlist;
+      const mode = wish.wishlist_mode === "link" ? "link" : "list";
+      const sourceUrl = String(wish.source_url ?? "").trim();
+      if (mode === "link" && sourceUrl && !/^https?:\/\//i.test(sourceUrl)) return fail(new Error("Ссылка должна начинаться с https://"));
+      const { error: wishlistError } = await db.from("santa_wishlists").upsert({ room_id: roomId, telegram_id: user.id, wishlist_mode: mode, source_url: mode === "link" ? sourceUrl || null : null }, { onConflict: "room_id,telegram_id" });
+      if (wishlistError) throw wishlistError;
+      const items = (Array.isArray(wish.wishes) ? wish.wishes : []).map((item: any, position: number) => ({ room_id: roomId, telegram_id: user.id, title: String(item.title ?? "").trim(), description: String(item.description ?? "").trim() || null, product_url: String(item.product_url ?? "").trim() || null, price: item.price ? Number(item.price) : null, position })).filter((item: any) => item.title).slice(0, 30);
+      if (items.length) { const { error: itemsError } = await db.from("santa_wishes").insert(items); if (itemsError) throw itemsError; }
+    }
+    const { data: room, error: roomError } = await db.from("santa_rooms").select("id, name, gift_budget, budget_unlimited, draw_at, status, invite_code").eq("id", roomId).single();
     if (roomError) throw roomError;
-    return Response.json({ room }, { status: 201 });
+    return Response.json({ room, avatarId }, { status: 201 });
   } catch (error) { return fail(error); }
 }
 

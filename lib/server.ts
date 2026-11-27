@@ -38,3 +38,24 @@ export function fail(error: unknown, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
+
+
+export async function sendTelegramNotification(chatId: number, text: string, appUrl: string) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return false;
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        reply_markup: { inline_keyboard: [[{ text: "Открыть приложение", url: appUrl }]] },
+      }),
+      cache: "no-store",
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
