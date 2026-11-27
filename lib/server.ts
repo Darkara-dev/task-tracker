@@ -19,13 +19,20 @@ export function telegramUser(request: NextRequest): TelegramUser {
   const hash = params.get("hash");
   if (!hash) throw new Error("Не удалось подтвердить Telegram");
   params.delete("hash");
-  params.delete("signature");
-  const check = [...params.entries()].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([k, v]) => `${k}=${v}`).join("\n");
+  const fields = [...params.entries()];
   const secret = createHmac("sha256", "WebAppData").update(token).digest();
-  const expected = createHmac("sha256", secret).update(check).digest();
   let provided: Buffer;
   try { provided = Buffer.from(hash, "hex"); } catch { throw new Error("Некорректная подпись Telegram"); }
-  if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) throw new Error("Подпись Telegram недействительна");
+  const checkSignatures = [
+    fields.filter(([key]) => key !== "signature"),
+    fields,
+  ];
+  const valid = checkSignatures.some(entries => {
+    const check = entries.sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([k, v]) => `${k}=${v}`).join("\n");
+    const expected = createHmac("sha256", secret).update(check).digest();
+    return expected.length === provided.length && timingSafeEqual(expected, provided);
+  });
+  if (!valid) throw new Error("Подпись Telegram недействительна");
   const authDate = Number(params.get("auth_date"));
   if (!authDate || Math.abs(Date.now() / 1000 - authDate) > 86_400) throw new Error("Сеанс Telegram истёк. Переоткройте приложение.");
   const rawUser = params.get("user");
