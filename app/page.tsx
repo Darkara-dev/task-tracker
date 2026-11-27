@@ -13,6 +13,17 @@ type RoomData = { room: Room; players: Player[]; wishlist?: Wishlist; recipient?
 const demoRoom: Room = { id: "demo", name: "Новогоднее чудо", gift_budget: 2500, draw_at: "2026-12-15", status: "open", invite_code: "sneg-2026", role: "admin" };
 const demoPlayers = ["Аня Лебедева", "Миша Котов", "Саша Орлова", "Дима Волков"].map((full_name, i) => ({ telegram_id: i + 1, full_name, role: i === 0 ? "admin" : "player" }));
 const tg = () => window.Telegram?.WebApp;
+function parseInviteCode(value: string) {
+  const raw = value.trim();
+  try {
+    const start = new URL(raw).searchParams.get("startapp") ?? new URL(raw).searchParams.get("start");
+    if (start?.startsWith("join-")) return start.slice(5);
+    const room = start?.match(/^room_(.+)_(?:result|chat_(?:recipient|santa))$/);
+    if (room) return room[1];
+  } catch {}
+  return raw.replace(/^join-/, "").trim();
+}
+
 
 export default function Home() {
   const [initData, setInitData] = useState("");
