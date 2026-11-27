@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 180" role="img" aria-label="Закрытая комната"><style>
+.i-g{fill:var(--ill-green,#1E4A38)}.i-gd{fill:var(--ill-green-deep,#163A2C)}
+.i-r{fill:var(--ill-red,#B02A45)}.i-rd{fill:var(--ill-red-deep,#8C1F36)}
+.i-y{fill:var(--ill-gold,#C9A14A)}.i-c{fill:var(--ill-cream,#FBF3E2)}
+.i-s{fill:var(--ill-soft,#DDE6DA)}.i-l{fill:var(--ill-line,#2A3A31)}
+.i-sl{fill:none;stroke:var(--ill-line,#2A3A31);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.i-sg{fill:none;stroke:var(--ill-gold,#C9A14A);stroke-width:2.5;stroke-linecap:round}
+.i-sc{fill:none;stroke:var(--ill-cream,#FBF3E2);stroke-width:3;stroke-linecap:round}
+.i-sgr{fill:none;stroke:var(--ill-green,#1E4A38);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+</style>
+<ellipse class="i-s" cx="120" cy="160" rx="80" ry="9"/>
+<rect class="i-g" x="74" y="78" width="88" height="76" rx="6"/>
+<rect class="i-gd" x="68" y="64" width="100" height="20" rx="4"/>
+<rect class="i-r" x="112" y="64" width="12" height="90"/>
+<path class="i-r" d="M118 64 C102 40 82 50 98 62 Z M118 64 C134 40 154 50 138 62 Z"/>
+<path class="i-sl" d="M152 108 V98 Q152 84 166 84 Q180 84 180 98 V108"/>
+<rect class="i-y" x="144" y="106" width="44" height="36" rx="6"/>
+<circle class="i-l" cx="166" cy="121" r="4"/><rect class="i-l" x="164.5" y="122" width="3" height="9" rx="1.5"/>
+<path class="i-y" d="M52.0,45.0 L53.4,50.6 L59.0,52.0 L53.4,53.4 L52.0,59.0 L50.6,53.4 L45.0,52.0 L50.6,50.6 Z"/>
+</svg>
+
