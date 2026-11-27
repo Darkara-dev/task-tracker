@@ -31,6 +31,7 @@ export default function Home() {
   const [chatMessages, setChatMessages] = useState<Array<{ id: string; body: string; created_at: string; mine: boolean }>>([]);
   const [chatText, setChatText] = useState("");
   const [showRecipient, setShowRecipient] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState(1);
   const [wishlistMode, setWishlistMode] = useState<"list" | "link">("list");
   const [wishlistUrl, setWishlistUrl] = useState("");
   const [wishItems, setWishItems] = useState<Wish[]>([]);
@@ -124,6 +125,27 @@ export default function Home() {
     document.addEventListener("visibilitychange", refresh);
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
   }, [screen, active?.room.id, active?.room.status, initData, demo]);
+
+  async function changeAvatar() {
+    let next = Math.floor(Math.random() * 32) + 1;
+    if (next === avatarPreview) next = next % 32 + 1;
+    if (!active || demo || active.room.id.startsWith("demo")) { setAvatarPreview(next); return; }
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/rooms/${active.room.id}`, { method: "PUT", headers: { "content-type": "application/json", "x-telegram-init-data": initData }, body: JSON.stringify({ action: "avatar", avatarId: next }) });
+      const json = await response.json(); if (!response.ok) throw new Error(json.error);
+      const currentId = Number(tg()?.initDataUnsafe?.user?.id);
+      setAvatarPreview(json.avatarId);
+      setActive({ ...active, players: active.players.map(player => player.telegram_id === currentId ? { ...player, avatar_id: json.avatarId } : player) });
+    } catch (error) { setNotice(error instanceof Error ? error.message : "Не удалось сменить аватарку"); }
+    finally { setBusy(false); }
+  }
+
+  useEffect(() => {
+    const userId = Number(tg()?.initDataUnsafe?.user?.id);
+    const current = active?.players.find(player => player.telegram_id === userId)?.avatar_id;
+    if (current) setAvatarPreview(current);
+  }, [active?.room.id, active?.players]);
 
   async function loadChat(tab: "recipient" | "santa" = chatTab) {
     if (!active || demo || active.room.id.startsWith("demo")) { setChatMessages([]); return; }
