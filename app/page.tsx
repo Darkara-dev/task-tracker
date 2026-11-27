@@ -4,10 +4,10 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 declare global { interface Window { Telegram?: { WebApp?: { initData: string; initDataUnsafe?: { user?: { id?: number; first_name?: string; last_name?: string; username?: string }; start_param?: string }; ready: () => void; expand: () => void; setHeaderColor?: (color: string) => void; setBackgroundColor?: (color: string) => void } } } }
 
-type Room = { id: string; name: string; gift_budget: number; draw_at?: string; status: string; invite_code: string; role?: string };
-type Player = { telegram_id: number; full_name: string; role: string };
-type Wishlist = { source_url?: string; title?: string; description?: string; color?: string; size?: string; notes?: string; product_url?: string; price?: string };
-type RoomData = { room: Room; players: Player[]; wishlist?: Wishlist; recipient?: { full_name: string; wishlist?: Wishlist } | null; exclusions: Array<[number, number]>; role: string };
+type Room = { id: string; name: string; gift_budget: number; budget_unlimited?: boolean; draw_at?: string; status: string; invite_code: string; role?: string };
+type Player = { telegram_id: number; full_name: string; role: string; avatar_id?: number };
+type Wish = { id?: string; title: string; description?: string; product_url?: string; price?: string | number; position?: number };\ntype Wishlist = { wishlist_mode?: "list" | "link"; source_url?: string; wishes?: Wish[]; title?: string; description?: string; color?: string; size?: string; notes?: string; product_url?: string; price?: string };
+type RoomData = { room: Room; players: Player[]; wishlist?: Wishlist; recipient?: { full_name: string; avatar_id?: number; wishlist?: Wishlist } | null; exclusions: Array<[number, number]>; role: string };
 
 const demoRoom: Room = { id: "demo", name: "Новогоднее чудо", gift_budget: 2500, draw_at: "2026-12-15", status: "open", invite_code: "sneg-2026", role: "admin" };
 const demoPlayers = ["Аня Лебедева", "Миша Котов", "Саша Орлова", "Дима Волков"].map((full_name, i) => ({ telegram_id: i + 1, full_name, role: i === 0 ? "admin" : "player" }));
@@ -18,14 +18,14 @@ export default function Home() {
   const [userName, setUserName] = useState("Санта");
   const [rooms, setRooms] = useState<Room[]>([]);
   const [active, setActive] = useState<RoomData | null>(null);
-  const [screen, setScreen] = useState<"home" | "room" | "wishlist" | "admin" | "create" | "join">("home");
+  const [screen, setScreen] = useState<"home" | "room" | "wishlist" | "admin" | "create" | "join" | "wait" | "result" | "chat" | "closed">("home");
   const [booting, setBooting] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [demo, setDemo] = useState(true);
   const [joinCode, setJoinCode] = useState("");
   const [createStep, setCreateStep] = useState(1);
-  const [createDraft, setCreateDraft] = useState({ name: "", budget: "", drawAt: "", unlimited: false });
+  const [createDraft, setCreateDraft] = useState({ name: "", budget: "", drawAt: "", unlimited: false });\n  const [chatTab, setChatTab] = useState<"recipient" | "santa">("recipient");\n  const [chatMessages, setChatMessages] = useState<Array<{ id: string; body: string; created_at: string; mine: boolean }>>([]);\n  const [chatText, setChatText] = useState("");\n  const [showRecipient, setShowRecipient] = useState(false);
 
   useEffect(() => {
     const app = tg();
@@ -52,6 +52,28 @@ export default function Home() {
     finally { setBusy(false); }
   }
   const allRooms = useMemo(() => demo ? [demoRoom, ...rooms.filter(r => r.id !== "demo")] : rooms, [demo, rooms]);
+
+  async function loadChat(tab: "recipient" | "santa" = chatTab) {
+    if (!active || demo || active.room.id.startsWith("demo")) { setChatMessages([]); return; }
+    try {
+      const res = await fetch(`/api/rooms/${active.room.id}/chat?tab=${tab}`, { headers: { "x-telegram-init-data": initData } });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      setChatMessages(json.messages ?? []);
+    } catch (error) { setNotice(error instanceof Error ? error.message : "Не удалось загрузить сообщения"); }
+  }
+
+  async function sendChat() {
+    const text = chatText.trim(); if (!active || !text || busy) return;
+    if (demo) { setNotice("Анонимный чат станет доступен после жеребьёвки"); return; }
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/rooms/${active.room.id}/chat`, { method: "POST", headers: { "content-type": "application/json", "x-telegram-init-data": initData }, body: JSON.stringify({ tab: chatTab, text }) });
+      const json = await res.json(); if (!res.ok) throw new Error(json.error);
+      setChatMessages(prev => [...prev, json.message]); setChatText("");
+    } catch (error) { setNotice(error instanceof Error ? error.message : "Не удалось отправить сообщение"); }
+    finally { setBusy(false); }
+  }
 
   async function createRoom(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = new FormData(event.currentTarget); setBusy(true);
