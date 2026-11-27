@@ -5,13 +5,14 @@ type Context = { params: Promise<{ id: string }> };
 type Tab = "recipient" | "santa";
 
 async function getThread(db: ReturnType<typeof supabase>, roomId: string, userId: number, tab: Tab) {
-  const query = tab === "recipient"
-    ? db.from("santa_assignments").select("recipient_id").eq("room_id", roomId).eq("giver_id", userId)
-    : db.from("santa_assignments").select("giver_id").eq("room_id", roomId).eq("recipient_id", userId);
-  const { data: assignment, error } = await query.maybeSingle();
+  if (tab === "recipient") {
+    const { data, error } = await db.from("santa_assignments").select("recipient_id").eq("room_id", roomId).eq("giver_id", userId).maybeSingle();
+    if (error) throw error;
+    return data?.recipient_id ? Number(data.recipient_id) : null;
+  }
+  const { data, error } = await db.from("santa_assignments").select("giver_id").eq("room_id", roomId).eq("recipient_id", userId).maybeSingle();
   if (error) throw error;
-  const otherId = tab === "recipient" ? assignment?.recipient_id : assignment?.giver_id;
-  return otherId ? Number(otherId) : null;
+  return data?.giver_id ? Number(data.giver_id) : null;
 }
 
 export async function GET(request: NextRequest, { params }: Context) {
