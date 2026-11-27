@@ -50,7 +50,7 @@ export async function sendTelegramNotification(chatId: number, text: string, app
       body: JSON.stringify({
         chat_id: chatId,
         text,
-        reply_markup: { inline_keyboard: [[{ text: "Открыть приложение", web_app: { url: appUrl } }]] },
+        reply_markup: { inline_keyboard: [[{ text: "Открыть приложение", url: appUrl }]] },
       }),
       cache: "no-store",
     });
