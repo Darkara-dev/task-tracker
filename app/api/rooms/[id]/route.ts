@@ -45,6 +45,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const user = telegramUser(request); const { id } = await params; const body = await request.json(); const db = supabase();
     const { data: member, error: memberError } = await db.from("santa_participants").select("role").eq("room_id", id).eq("telegram_id", user.id).single();
     if (memberError || !member) return fail(new Error("Нет доступа к комнате"), 403);
+    if (body.action === "avatar") {
+      const avatarId = Number(body.avatarId);
+      if (!Number.isInteger(avatarId) || avatarId < 1 || avatarId > 32) return fail(new Error("Не удалось выбрать аватарку"));
+      const { data, error } = await db.rpc("assign_santa_avatar", { p_room_id: id, p_telegram_id: user.id, p_current: avatarId });
+      if (error) throw error;
+      return Response.json({ avatarId: data });
+    }
     if (body.action === "wishlist") {
       const wish = body.wishlist ?? {};
       const mode = wish.wishlist_mode === "link" ? "link" : "list";
