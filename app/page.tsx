@@ -45,7 +45,28 @@ export default function Home() {
     if (name) setUserName(name);
     if (app?.initData) { setDemo(false); void Promise.all([loadRooms(app.initData), new Promise(resolve => window.setTimeout(resolve, 1800))]).finally(() => setBooting(false)); } else { window.setTimeout(() => setBooting(false), 1800); }
     const start = app?.initDataUnsafe?.start_param ?? "";
-    if (start.startsWith("join-")) { setJoinCode(start.slice(5)); setScreen("join"); }
+    const directJoin = start.match(/^join-(.+)$/);
+    const deepLink = start.match(/^room_(.+)_(result|chat_(recipient|santa))$/);
+    const code = directJoin?.[1] ?? deepLink?.[1];
+    if (code) {
+      setJoinCode(code);
+      if (app?.initData) void (async () => {
+        try {
+          const invite = await fetch(`/api/invites/${encodeURIComponent(code)}`, { headers: { "x-telegram-init-data": app.initData } });
+          const info = await invite.json();
+          if (!invite.ok) { setScreen("closed"); return; }
+          if (info.alreadyMember) {
+            const detail = await fetch(`/api/rooms/${info.room.id}`, { headers: { "x-telegram-init-data": app.initData } });
+            const data = await detail.json(); if (!detail.ok) throw new Error(data.error);
+            setActive(data);
+            if (deepLink?.[2]?.startsWith("chat_")) { const tab = deepLink[3] === "santa" ? "santa" : "recipient"; setChatTab(tab); setScreen("chat"); }
+            else setScreen(deepLink?.[2] === "result" ? "result" : "room");
+          } else setScreen("join");
+        } catch { setScreen("closed"); }
+      })();
+      else setScreen("join");
+    }
+    if (active?.room?.id) setShowRecipient(localStorage.getItem(`santa-revealed-${active.room.id}`) === "1");
   }, []);
 
   async function loadRooms(auth = initData) {
@@ -78,6 +99,31 @@ export default function Home() {
     });
     setWishDraft({ title: "", description: "", product_url: "", price: "" }); setEditingWish(null); setNotice("Пожелание добавлено");
   }
+
+  useEffect(() => {
+    if (screen !== "chat" || !active) return;
+    const refresh = () => { if (document.visibilityState === "visible") void loadChat(chatTab); };
+    const timer = window.setInterval(refresh, 10000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
+  }, [screen, active?.room.id, chatTab, initData]);
+
+  useEffect(() => {
+    if (!active || screen !== "room" || active.room.status !== "open") return;
+    let knownCount = active.players.length;
+    const refresh = async () => {
+      if (document.visibilityState !== "visible" || demo) return;
+      try {
+        const response = await fetch(`/api/rooms/${active.room.id}`, { headers: { "x-telegram-init-data": initData } });
+        const data = await response.json(); if (!response.ok) return;
+        if (data.players?.length > knownCount) { setNotice("В комнате новый участник"); knownCount = data.players.length; }
+        setActive(data);
+      } catch {}
+    };
+    const timer = window.setInterval(refresh, 10000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
+  }, [screen, active?.room.id, active?.room.status, initData, demo]);
 
   async function loadChat(tab: "recipient" | "santa" = chatTab) {
     if (!active || demo || active.room.id.startsWith("demo")) { setChatMessages([]); return; }
@@ -141,11 +187,11 @@ export default function Home() {
     catch (error) { setNotice(error instanceof Error ? error.message : "Не удалось сохранить вишлист"); }
     finally { setBusy(false); }
   }
-  const title = screen === "room" && active ? active.room.name : screen === "wishlist" ? "Мой вишлист" : screen === "admin" ? "Настройки комнаты" : screen === "create" ? "Новая комната" : screen === "join" ? "Войти в игру" : "Тайный Санта";
+  const title = screen === "room" && active ? active.room.name : screen === "wishlist" ? "Мой вишлист" : screen === "admin" ? "Запретные пары" : screen === "create" ? "Новая комната" : screen === "join" ? "Войти в игру" : screen === "result" ? "Кому я дарю" : screen === "chat" ? "Анонимный чат" : screen === "wait" ? "Жеребьёвка" : "Тайный Санта";
 
   return <main className="shell">
     <header className="topbar"><button className="brand" onClick={() => setScreen("home")} aria-label="На главную"><img className="brand-mark" src="/assets/illustrations/app-icon.webp" alt="" /><span>Тайный Санта</span></button><button className="avatar" aria-label="Профиль пользователя">{userName.slice(0, 1).toUpperCase()}</button></header>
-    {screen !== "home" && <div className="subnav"><button className="back" onClick={() => setScreen(screen === "wishlist" || screen === "admin" ? "room" : "home")}>←</button><span>{title}</span><span className="small-mark">✳</span></div>}
+    {screen !== "home" && <div className="subnav"><button className="back" onClick={() => setScreen(["wishlist", "admin", "chat", "result", "wait"].includes(screen) ? "room" : "home")}>←</button><span>{title}</span><span className="small-mark">✳</span></div>}
 
     {booting && <div className="splash-screen" role="status"><img src="/assets/illustrations/santa-shh.webp" width="210" height="210" alt="" /><h1>Тайный Санта</h1><p>{tg()?.initDataUnsafe?.start_param ? "Открываем приглашение…" : "Тсс… готовим подарки"}</p><div className="candy-progress"><span/></div><small>Загружаем приложение</small></div>}
 
