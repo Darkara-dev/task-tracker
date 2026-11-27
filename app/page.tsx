@@ -53,6 +53,12 @@ export default function Home() {
   const [editingWish, setEditingWish] = useState<number | null>(null);
 
   useEffect(() => {
+    if (!notice) return;
+    const timeout = window.setTimeout(() => setNotice(""), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
+
+  useEffect(() => {
     const app = tg();
     app?.ready(); app?.expand(); app?.setHeaderColor?.("#0F3D2E"); app?.setBackgroundColor?.("#0F3D2E");
     setInitData(app?.initData ?? "");
@@ -220,13 +226,13 @@ export default function Home() {
   }
 
   async function createRoom(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); const form = new FormData(event.currentTarget); setBusy(true);
+    event.preventDefault(); const form = new FormData(event.currentTarget); setBusy(true); const pendingWish = wishDraft.title?.trim() && editingWish === null ? [{ ...wishDraft, title: wishDraft.title.trim() }] : []; const wishesToSave = [...wishItems, ...pendingWish];
     if (demo) {
       const room: Room = { ...demoRoom, id: `demo-${Date.now()}`, name: String(form.get("name")), gift_budget: Number(form.get("budget")) || 0, budget_unlimited: createDraft.unlimited, invite_code: Math.random().toString(36).slice(2, 10) };
-      setRooms(prev => [room, ...prev]); setActive({ room, players: demoPlayers.map((player, index) => index === 0 ? { ...player, avatar_id: avatarPreview } : player), role: "admin", exclusions: [], wishlist: { wishlist_mode: wishlistMode, source_url: wishlistUrl, wishes: wishItems } }); setNotice("Комната создана! Позовите друзей"); setScreen("room"); setCreateStep(1); setBusy(false); return;
+      setRooms(prev => [room, ...prev]); setActive({ room, players: demoPlayers.map((player, index) => index === 0 ? { ...player, avatar_id: avatarPreview } : player), role: "admin", exclusions: [], wishlist: { wishlist_mode: wishlistMode, source_url: wishlistUrl, wishes: wishesToSave } }); setNotice("Комната создана! Позовите друзей"); setScreen("room"); setCreateStep(1); setBusy(false); return;
     }
     try {
-      const res = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json", "x-telegram-init-data": initData }, body: JSON.stringify({ name: form.get("name"), budget: form.get("budget"), budgetUnlimited: createDraft.unlimited, drawAt: form.get("drawAt"), fullName: form.get("fullName"), avatarId: avatarPreview, wishlist: { wishlist_mode: wishlistMode, source_url: wishlistUrl, wishes: wishItems } }) });
+      const res = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json", "x-telegram-init-data": initData }, body: JSON.stringify({ name: form.get("name"), budget: form.get("budget"), budgetUnlimited: createDraft.unlimited, drawAt: form.get("drawAt"), fullName: form.get("fullName"), avatarId: avatarPreview, wishlist: { wishlist_mode: wishlistMode, source_url: wishlistUrl, wishes: wishesToSave } }) });
       const json = await res.json(); if (!res.ok) throw new Error(json.error);
       await loadRooms();
       const detail = await fetch(`/api/rooms/${json.room.id}`, { headers: { "x-telegram-init-data": initData } }); const data = await detail.json(); if (!detail.ok) throw new Error(data.error);
@@ -313,7 +319,7 @@ ${inviteLink(room)}`;
     {screen === "closed" && <section className="state-page"><img src="/assets/illustrations/closed-shrug.webp" width="220" height="220" alt=""/><h1>Ссылка не работает</h1><p>Комната могла быть удалена или набор уже закрыт.</p><button className="button button-dark full" onClick={() => setScreen("home")}>К моим комнатам <span>↗</span></button></section>}
 
     {screen === "wishlist" && <section className="form-page"><div className="form-intro"><div className="eyebrow">ПУСТЬ САНТЕ БУДЕТ ПРОЩЕ</div><h1>Немного <em>подсказок.</em></h1><p>Добавьте идеи в список или оставьте ссылку на готовый вишлист.</p></div>
-      <div className="profile-preview"><img src={`/assets/avatars/avatar-${String(avatarPreview).padStart(2, "0")}.webp`} width="84" height="84" alt=""/><span>Ваша аватарка. Её увидят все в комнате.</span></div><button className="avatar-reroll" type="button" onClick={() => void changeAvatar()}>⤨ Другая аватарка</button>
+      <div className="profile-setup"><div className="profile-preview"><img src={`/assets/avatars/avatar-${String(avatarPreview).padStart(2, "0")}.webp`} width="84" height="84" alt=""/><span>Ваша аватарка. Её увидят все в комнате.</span></div><button className="avatar-reroll" type="button" onClick={() => void changeAvatar()}>⤨ Другая аватарка</button></div>
       <form onSubmit={saveWishlist} className="form-stack">
         <div className="segment-controls"><button type="button" className={wishlistMode === "list" ? "active" : ""} onClick={() => setWishlistMode("list")}>Списком</button><button type="button" className={wishlistMode === "link" ? "active" : ""} onClick={() => setWishlistMode("link")}>Ссылкой</button></div>
         {wishlistMode === "link" ? <label>Ссылка на вишлист<input type="url" name="source_url" value={wishlistUrl} onChange={e => setWishlistUrl(e.target.value)} placeholder="https://…" required/><small>Подойдёт вишлист из любого сервиса или маркетплейса.</small></label> : <>
@@ -328,7 +334,7 @@ ${inviteLink(room)}`;
     {screen === "join" && <section className="form-page"><div className="form-intro"><div className="eyebrow">ВАС УЖЕ ЖДУТ</div><h1>Расскажите <em>о себе.</em></h1><p>Ваши друзья увидят вас в списке участников.</p></div>{joinPreview && <div className="invite-room-preview"><img src={`/assets/avatars/avatar-${String(joinPreview.organizer?.avatar_id ?? 1).padStart(2, "0")}.webp`} width="48" height="48" alt=""/><div><small>{joinPreview.organizer?.full_name ?? "Организатор"} зовёт вас в</small><strong>{joinPreview.room.name}</strong><span>{joinPreview.room.budget_unlimited || !joinPreview.room.gift_budget ? "Без ограничений" : `Бюджет до ${joinPreview.room.gift_budget.toLocaleString("ru-RU")} ₽`}</span></div></div>}<form onSubmit={joinRoom} className="form-stack">{!joinPreview && <label>Ссылка или код приглашения<input required value={joinCode} onChange={e => setJoinCode(e.target.value)} placeholder="Вставьте ссылку или код комнаты"/></label>}<div className="profile-preview"><img src={`/assets/avatars/avatar-${String(avatarPreview).padStart(2, "0")}.webp`} width="84" height="84" alt=""/><span>Ваша аватарка. Её увидят все в комнате.</span></div><button className="avatar-reroll" type="button" onClick={() => void changeAvatar()}>⤨ Другая аватарка</button><label>Имя и фамилия<input required name="fullName" placeholder="Например, Александра Петрова" defaultValue={userName === "Санта" ? "" : userName} maxLength={120}/></label><div className="profile-wishlist"><strong>Что вам подарить?</strong><div className="segment-controls"><button type="button" className={wishlistMode === "list" ? "active" : ""} onClick={() => setWishlistMode("list")}>Списком</button><button type="button" className={wishlistMode === "link" ? "active" : ""} onClick={() => setWishlistMode("link")}>Ссылкой</button></div>{wishlistMode === "link" ? <input type="url" value={wishlistUrl} onChange={e => setWishlistUrl(e.target.value)} placeholder="Ссылка на вишлист · https://…"/> : <><div className="signup-wishes">{wishItems.map((wish, i) => <div key={i}><span>{wish.title}</span><button type="button" onClick={() => setWishItems(items => items.filter((_, index) => index !== i))} aria-label="Удалить пожелание">×</button></div>)}</div><input value={wishDraft.title ?? ""} maxLength={120} onChange={e => setWishDraft({ ...wishDraft, title: e.target.value })} placeholder="Например, хорошая книга"/><textarea value={wishDraft.description ?? ""} maxLength={500} onChange={e => setWishDraft({ ...wishDraft, description: e.target.value })} placeholder="Цвет, размер, другие пожелания"/><div className="form-grid"><input type="url" value={wishDraft.product_url ?? ""} onChange={e => setWishDraft({ ...wishDraft, product_url: e.target.value })} placeholder="Ссылка на товар"/><input inputMode="numeric" value={wishDraft.price ?? ""} onChange={e => setWishDraft({ ...wishDraft, price: e.target.value.replace(/\\D/g, "") })} placeholder="Цена, ₽"/></div><button className="avatar-reroll" type="button" onClick={saveWishDraft}>＋ Добавить пожелание</button></>}</div><button disabled={busy} className="button button-dark full">{busy ? "Присоединяем…" : "Присоединиться"} <span>↗</span></button></form></section>}
 
     {screen === "admin" && active && <AdminPage active={active} demo={demo} initData={initData} setScreen={setScreen} setActive={setActive} setNotice={setNotice} setBusy={setBusy} busy={busy} />}
-    {notice && <div className="toast" role="status"><span>✳</span>{notice}<button onClick={() => setNotice("")} aria-label="Закрыть">×</button></div>}
+    {notice && <div className="toast" role="status"><span aria-hidden="true">✳</span><span className="toast-message">{notice}</span><button onClick={() => setNotice("")} aria-label="Закрыть">×</button><span className="toast-progress" aria-hidden="true"/></div>}
     {busy && <div className="loading" role="status">Секундочку…</div>}
   </main>;
 }
