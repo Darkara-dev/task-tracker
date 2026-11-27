@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     if (error) throw error;
     const { error: budgetError } = await db.from("santa_rooms").update({ budget_unlimited: Boolean(body.budgetUnlimited) }).eq("id", roomId);
     if (budgetError) throw budgetError;
-    const { data: avatarId, error: avatarError } = await db.rpc("assign_santa_avatar", { p_room_id: roomId, p_telegram_id: user.id });
+    const { data: avatarId, error: avatarError } = await db.rpc("assign_santa_avatar", { p_room_id: roomId, p_telegram_id: user.id, p_current: Number(body.avatarId) || null });
     if (avatarError) throw avatarError;
     if (body.wishlist) {
       const wish = body.wishlist;
