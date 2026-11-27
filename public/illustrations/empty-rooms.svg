@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 180" role="img" aria-label="Ёлка и подарки"><style>
+.i-g{fill:var(--ill-green,#1E4A38)}.i-gd{fill:var(--ill-green-deep,#163A2C)}
+.i-r{fill:var(--ill-red,#B02A45)}.i-rd{fill:var(--ill-red-deep,#8C1F36)}
+.i-y{fill:var(--ill-gold,#C9A14A)}.i-c{fill:var(--ill-cream,#FBF3E2)}
+.i-s{fill:var(--ill-soft,#DDE6DA)}.i-l{fill:var(--ill-line,#2A3A31)}
+.i-sl{fill:none;stroke:var(--ill-line,#2A3A31);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.i-sg{fill:none;stroke:var(--ill-gold,#C9A14A);stroke-width:2.5;stroke-linecap:round}
+.i-sc{fill:none;stroke:var(--ill-cream,#FBF3E2);stroke-width:3;stroke-linecap:round}
+.i-sgr{fill:none;stroke:var(--ill-green,#1E4A38);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+</style>
+<ellipse class="i-s" cx="120" cy="158" rx="96" ry="11"/>
+<rect class="i-l" x="92" y="128" width="12" height="26" rx="2"/>
+<path class="i-g" d="M98 84 L144 138 L52 138 Z" stroke="var(--ill-green,#1E4A38)" stroke-width="8" stroke-linejoin="round"/>
+<path class="i-g" d="M98 56 L136 110 L60 110 Z" stroke="var(--ill-green,#1E4A38)" stroke-width="8" stroke-linejoin="round"/>
+<path class="i-g" d="M98 34 L126 82 L70 82 Z" stroke="var(--ill-green,#1E4A38)" stroke-width="8" stroke-linejoin="round"/>
+<path class="i-sc" d="M76 118 Q98 126 122 114" opacity=".55"/>
+<path class="i-sc" d="M82 90 Q98 97 114 88" opacity=".55"/>
+<circle class="i-r" cx="84" cy="122" r="4"/><circle class="i-y" cx="112" cy="96" r="3.5"/><circle class="i-r" cx="104" cy="66" r="3.5"/>
+<path class="i-y" d="M98.0,12.0 L100.9,20.0 L109.4,20.3 L102.8,25.5 L105.1,33.7 L98.0,29.0 L90.9,33.7 L93.2,25.5 L86.6,20.3 L95.1,20.0 Z"/>
+<rect class="i-r" x="134" y="114" width="54" height="42" rx="4"/>
+<rect class="i-rd" x="130" y="104" width="62" height="14" rx="3"/>
+<rect class="i-c" x="157" y="104" width="8" height="52"/>
+<path class="i-c" d="M161 104 C150 88 136 94 146 102 Z M161 104 C172 88 186 94 176 102 Z"/>
+<rect class="i-c" x="56" y="134" width="32" height="22" rx="3"/>
+<rect class="i-g" x="70" y="134" width="5" height="22"/>
+<rect class="i-g" x="56" y="142" width="32" height="5"/>
+<path class="i-y" d="M206.0,53.0 L207.8,60.2 L215.0,62.0 L207.8,63.8 L206.0,71.0 L204.2,63.8 L197.0,62.0 L204.2,60.2 Z"/><path class="i-y" d="M30.0,74.0 L31.2,78.8 L36.0,80.0 L31.2,81.2 L30.0,86.0 L28.8,81.2 L24.0,80.0 L28.8,78.8 Z"/><path class="i-y" d="M188.0,25.0 L189.0,29.0 L193.0,30.0 L189.0,31.0 L188.0,35.0 L187.0,31.0 L183.0,30.0 L187.0,29.0 Z"/>
+</svg>
+
