@@ -182,20 +182,7 @@ export default function Home() {
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
   }, [screen, active?.room.id, active?.room.status, initData, demo]);
 
-  async function changeAvatar() {
-    let next = Math.floor(Math.random() * 32) + 1;
-    if (next === avatarPreview) next = next % 32 + 1;
-    if (!active || demo || active.room.id.startsWith("demo")) { setAvatarPreview(next); return; }
-    setBusy(true);
-    try {
-      const response = await fetch(`/api/rooms/${active.room.id}`, { method: "PUT", headers: { "content-type": "application/json", "x-telegram-init-data": initData }, body: JSON.stringify({ action: "avatar", avatarId: next }) });
-      const json = await response.json(); if (!response.ok) throw new Error(json.error);
-      const currentId = Number(tg()?.initDataUnsafe?.user?.id);
-      setAvatarPreview(json.avatarId);
-      setActive({ ...active, players: active.players.map(player => player.telegram_id === currentId ? { ...player, avatar_id: json.avatarId } : player) });
-    } catch (error) { setNotice(error instanceof Error ? error.message : "Не удалось сменить аватарку"); }
-    finally { setBusy(false); }
-  }
+
 
   useEffect(() => {
     const userId = Number(tg()?.initDataUnsafe?.user?.id);
@@ -319,7 +306,7 @@ ${inviteLink(room)}`;
     {screen === "closed" && <section className="state-page"><img src="/assets/illustrations/closed-shrug.webp" width="220" height="220" alt=""/><h1>Ссылка не работает</h1><p>Комната могла быть удалена или набор уже закрыт.</p><button className="button button-dark full" onClick={() => setScreen("home")}>К моим комнатам <span>↗</span></button></section>}
 
     {screen === "wishlist" && <section className="form-page"><div className="form-intro"><div className="eyebrow">ПУСТЬ САНТЕ БУДЕТ ПРОЩЕ</div><h1>Немного <em>подсказок.</em></h1><p>Добавьте идеи в список или оставьте ссылку на готовый вишлист.</p></div>
-      <div className="profile-setup"><div className="profile-preview"><img src={`/assets/avatars/avatar-${String(avatarPreview).padStart(2, "0")}.webp`} width="84" height="84" alt=""/><span>Ваша аватарка. Её увидят все в комнате.</span></div><button className="avatar-reroll" type="button" onClick={() => void changeAvatar()}>⤨ Другая аватарка</button></div>
+      <div className="profile-preview"><img src={`/assets/avatars/avatar-${String(avatarPreview).padStart(2, "0")}.webp`} width="84" height="84" alt=""/><span>Ваша аватарка. Её увидят все в комнате.</span></div></div>
       <form onSubmit={saveWishlist} className="form-stack">
         <div className="segment-controls"><button type="button" className={wishlistMode === "list" ? "active" : ""} onClick={() => setWishlistMode("list")}>Списком</button><button type="button" className={wishlistMode === "link" ? "active" : ""} onClick={() => setWishlistMode("link")}>Ссылкой</button></div>
         {wishlistMode === "link" ? <label>Ссылка на вишлист<input type="url" name="source_url" value={wishlistUrl} onChange={e => setWishlistUrl(e.target.value)} placeholder="https://…" required/><small>Подойдёт вишлист из любого сервиса или маркетплейса.</small></label> : <>
