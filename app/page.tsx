@@ -173,10 +173,10 @@ export default function Home() {
     event.preventDefault(); const form = new FormData(event.currentTarget); setBusy(true);
     if (demo) {
       const room: Room = { ...demoRoom, id: `demo-${Date.now()}`, name: String(form.get("name")), gift_budget: Number(form.get("budget")) || 0, budget_unlimited: createDraft.unlimited, invite_code: Math.random().toString(36).slice(2, 10) };
-      setRooms(prev => [room, ...prev]); setActive({ room, players: demoPlayers, role: "admin", exclusions: [] }); setNotice("Комната создана! Позовите друзей"); setScreen("room"); setCreateStep(1); setBusy(false); return;
+      setRooms(prev => [room, ...prev]); setActive({ room, players: demoPlayers.map((player, index) => index === 0 ? { ...player, avatar_id: avatarPreview } : player), role: "admin", exclusions: [], wishlist: { wishlist_mode: wishlistMode, source_url: wishlistUrl, wishes: wishItems } }); setNotice("Комната создана! Позовите друзей"); setScreen("room"); setCreateStep(1); setBusy(false); return;
     }
     try {
-      const res = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json", "x-telegram-init-data": initData }, body: JSON.stringify({ name: form.get("name"), budget: form.get("budget"), budgetUnlimited: createDraft.unlimited, drawAt: form.get("drawAt"), fullName: form.get("fullName") }) });
+      const res = await fetch("/api/rooms", { method: "POST", headers: { "content-type": "application/json", "x-telegram-init-data": initData }, body: JSON.stringify({ name: form.get("name"), budget: form.get("budget"), budgetUnlimited: createDraft.unlimited, drawAt: form.get("drawAt"), fullName: form.get("fullName"), avatarId: avatarPreview, wishlist: { wishlist_mode: wishlistMode, source_url: wishlistUrl, wishes: wishItems } }) });
       const json = await res.json(); if (!res.ok) throw new Error(json.error);
       await loadRooms();
       const detail = await fetch(`/api/rooms/${json.room.id}`, { headers: { "x-telegram-init-data": initData } }); const data = await detail.json(); if (!detail.ok) throw new Error(data.error);
@@ -189,7 +189,7 @@ export default function Home() {
     event.preventDefault(); const fullName = String(new FormData(event.currentTarget).get("fullName") ?? "");
     if (demo) { setNotice("Приглашения заработают после подключения бота"); return; }
     setBusy(true);
-    try { const res = await fetch("/api/join", { method: "POST", headers: { "content-type": "application/json", "x-telegram-init-data": initData }, body: JSON.stringify({ code: joinCode, fullName }) }); const json = await res.json(); if (!res.ok) throw new Error(json.code === "ROOM_FULL" ? "В комнате уже 32 участника" : json.code === "DRAW_DONE" ? "Игра уже началась" : json.code === "ROOM_NOT_FOUND" ? "Ссылка не работает" : json.error); await loadRooms(); const detail = await fetch(`/api/rooms/${json.roomId}`, { headers: { "x-telegram-init-data": initData } }); const data = await detail.json(); if (!detail.ok) throw new Error(data.error); setActive(data); setNotice("Вы в игре! Ждём жеребьёвку"); setScreen("room"); }
+    try { const res = await fetch("/api/join", { method: "POST", headers: { "content-type": "application/json", "x-telegram-init-data": initData }, body: JSON.stringify({ code: parseInviteCode(joinCode), fullName, avatarId: avatarPreview }) }); const json = await res.json(); if (!res.ok) throw new Error(json.code === "ROOM_FULL" ? "В комнате уже 32 участника" : json.code === "DRAW_DONE" ? "Игра уже началась" : json.code === "ROOM_NOT_FOUND" ? "Ссылка не работает" : json.error); await loadRooms(); const detail = await fetch(`/api/rooms/${json.roomId}`, { headers: { "x-telegram-init-data": initData } }); const data = await detail.json(); if (!detail.ok) throw new Error(data.error); setActive(data); setNotice("Вы в игре! Ждём жеребьёвку"); setScreen("room"); }
     catch (error) { setNotice(error instanceof Error ? error.message : "Не удалось присоединиться"); }
     finally { setBusy(false); }
   }
