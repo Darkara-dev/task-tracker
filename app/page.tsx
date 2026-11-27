@@ -133,7 +133,7 @@ export default function Home() {
   }
   async function saveWishlist(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!active) return;
-    const form = new FormData(event.currentTarget); const wishlist: Wishlist = Object.fromEntries([...form.entries()].map(([key, value]) => [key, String(value)] as const));
+    const form = new FormData(event.currentTarget); const wishlist: Wishlist = { wishlist_mode: wishlistMode, source_url: String(form.get("source_url") ?? "").trim(), wishes: wishItems };
     if (demo || active.room.id.startsWith("demo")) { setActive({ ...active, wishlist }); setNotice("Вишлист сохранён в предпросмотре"); setScreen("room"); return; }
     setBusy(true);
     try { const res = await fetch(`/api/rooms/${active.room.id}`, { method: "PUT", headers: { "content-type": "application/json", "x-telegram-init-data": initData }, body: JSON.stringify({ action: "wishlist", wishlist }) }); const json = await res.json(); if (!res.ok) throw new Error(json.error); setActive({ ...active, wishlist }); setNotice("Вишлист сохранён"); setScreen("room"); }
