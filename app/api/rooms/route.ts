@@ -4,11 +4,27 @@ import { randomBytes } from "node:crypto";
 
 export async function GET(request: NextRequest) {
   try {
-    const user = telegramUser(request); const db = supabase();
-    const { data, error } = await db.from("santa_participants").select("room_id, role, santa_rooms(id, name, gift_budget, budget_unlimited, draw_at, status, invite_code)").eq("telegram_id", user.id);
-    if (error) throw error;
-    return Response.json({ rooms: (data ?? []).map((entry: any) => ({ ...entry.santa_rooms, role: entry.role })) });
-  } catch (error) { return fail(error, 401); }
+    const user = telegramUser(request);
+    const db = supabase();
+    const { data: memberships, error: membershipsError } = await db
+      .from("santa_participants")
+      .select("room_id, role")
+      .eq("telegram_id", user.id);
+    if (membershipsError) throw membershipsError;
+    if (!memberships?.length) return Response.json({ rooms: [] });
+
+    const { data: rooms, error: roomsError } = await db
+      .from("santa_rooms")
+      .select("id, name, gift_budget, budget_unlimited, draw_at, status, invite_code")
+      .in("id", memberships.map(membership => membership.room_id));
+    if (roomsError) throw roomsError;
+
+    const roles = new Map(memberships.map(membership => [membership.room_id, membership.role]));
+    return Response.json({ rooms: (rooms ?? []).map(room => ({ ...room, role: roles.get(room.id) })) });
+  } catch (error) {
+    console.error("[santa] Failed to load rooms", error);
+    return fail(error, 401);
+  }
 }
 
 export async function POST(request: NextRequest) {
