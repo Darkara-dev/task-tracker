@@ -229,11 +229,22 @@ export default function Home() {
   }
   async function saveWishlist(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!active) return;
-    const form = new FormData(event.currentTarget); const wishlist: Wishlist = { wishlist_mode: wishlistMode, source_url: wishlistUrl.trim(), wishes: wishItems };
+    const wishlist: Wishlist = { wishlist_mode: wishlistMode, source_url: wishlistUrl.trim(), wishes: wishItems };
     if (demo || active.room.id.startsWith("demo")) { setActive({ ...active, wishlist }); setNotice("Вишлист сохранён в предпросмотре"); setScreen("room"); return; }
     setBusy(true);
-    try { const res = await fetch(`/api/rooms/${active.room.id}`, { method: "PUT", headers: { "content-type": "application/json", "x-telegram-init-data": initData }, body: JSON.stringify({ action: "wishlist", wishlist }) }); const json = await res.json(); if (!res.ok) throw new Error(json.error); setActive({ ...active, wishlist }); setNotice("Вишлист сохранён"); setScreen("room"); }
-    catch (error) { setNotice(error instanceof Error ? error.message : "Не удалось сохранить вишлист"); }
+    try {
+      let updated = active;
+      const userId = Number(tg()?.initDataUnsafe?.user?.id);
+      const me = active.players.find(player => player.telegram_id === userId);
+      if (me && me.avatar_id !== avatarPreview) {
+        const avatarRes = await fetch(`/api/rooms/${active.room.id}`, { method: "PUT", headers: { "content-type": "application/json", "x-telegram-init-data": initData }, body: JSON.stringify({ action: "avatar", avatarId: avatarPreview }) });
+        const avatarJson = await avatarRes.json(); if (!avatarRes.ok) throw new Error(avatarJson.error);
+        updated = { ...updated, players: updated.players.map(player => player.telegram_id === userId ? { ...player, avatar_id: avatarJson.avatarId } : player) };
+      }
+      const res = await fetch(`/api/rooms/${active.room.id}`, { method: "PUT", headers: { "content-type": "application/json", "x-telegram-init-data": initData }, body: JSON.stringify({ action: "wishlist", wishlist }) });
+      const json = await res.json(); if (!res.ok) throw new Error(json.error);
+      setActive({ ...updated, wishlist }); setNotice("Вишлист сохранён"); setScreen("room");
+    } catch (error) { setNotice(error instanceof Error ? error.message : "Не удалось сохранить вишлист"); }
     finally { setBusy(false); }
   }
   const title = screen === "room" && active ? active.room.name : screen === "wishlist" ? "Мой вишлист" : screen === "admin" ? "Запретные пары" : screen === "create" ? "Новая комната" : screen === "join" ? "Войти в игру" : screen === "result" ? "Кому я дарю" : screen === "chat" ? "Анонимный чат" : screen === "wait" ? "Жеребьёвка" : "Тайный Санта";
@@ -277,6 +288,7 @@ export default function Home() {
     {screen === "closed" && <section className="state-page"><img src="/assets/illustrations/closed-shrug.webp" width="220" height="220" alt=""/><h1>Ссылка не работает</h1><p>Комната могла быть удалена или набор уже закрыт.</p><button className="button button-dark full" onClick={() => setScreen("home")}>К моим комнатам <span>↗</span></button></section>}
 
     {screen === "wishlist" && <section className="form-page"><div className="form-intro"><div className="eyebrow">ПУСТЬ САНТЕ БУДЕТ ПРОЩЕ</div><h1>Немного <em>подсказок.</em></h1><p>Добавьте идеи в список или оставьте ссылку на готовый вишлист.</p></div>
+      <div className="profile-preview"><img src={`/assets/avatars/avatar-${String(avatarPreview).padStart(2, "0")}.webp`} width="84" height="84" alt=""/><span>Ваша аватарка. Её увидят все в комнате.</span></div><button className="avatar-reroll" type="button" onClick={() => void changeAvatar()}>⤨ Другая аватарка</button>
       <form onSubmit={saveWishlist} className="form-stack">
         <div className="segment-controls"><button type="button" className={wishlistMode === "list" ? "active" : ""} onClick={() => setWishlistMode("list")}>Списком</button><button type="button" className={wishlistMode === "link" ? "active" : ""} onClick={() => setWishlistMode("link")}>Ссылкой</button></div>
         {wishlistMode === "link" ? <label>Ссылка на вишлист<input type="url" name="source_url" value={wishlistUrl} onChange={e => setWishlistUrl(e.target.value)} placeholder="https://…" required/><small>Подойдёт вишлист из любого сервиса или маркетплейса.</small></label> : <>
