@@ -8,7 +8,7 @@ type Room = { id: string; name: string; gift_budget: number; budget_unlimited?: 
 type Player = { telegram_id: number; full_name: string; role: string; avatar_id?: number };
 type Wish = { id?: string; title: string; description?: string; product_url?: string; price?: string | number; position?: number };
 type Wishlist = { wishlist_mode?: "list" | "link"; source_url?: string; wishes?: Wish[]; title?: string; description?: string; color?: string; size?: string; notes?: string; product_url?: string; price?: string };
-type RoomData = { room: Room; players: Player[]; wishlist?: Wishlist; recipient?: { full_name: string; avatar_id?: number; wishlist?: Wishlist } | null; exclusions: Array<[number, number]>; role: string };
+type InvitePreview = { room: Room; organizer?: { full_name?: string; avatar_id?: number } | null; alreadyMember: boolean };\ntype RoomData = { room: Room; players: Player[]; wishlist?: Wishlist; recipient?: { full_name: string; avatar_id?: number; wishlist?: Wishlist } | null; exclusions: Array<[number, number]>; role: string };
 
 const demoRoom: Room = { id: "demo", name: "Новогоднее чудо", gift_budget: 2500, draw_at: "2026-12-15", status: "open", invite_code: "sneg-2026", role: "admin" };
 const demoPlayers = ["Аня Лебедева", "Миша Котов", "Саша Орлова", "Дима Волков"].map((full_name, i) => ({ telegram_id: i + 1, full_name, role: i === 0 ? "admin" : "player" }));
@@ -35,7 +35,7 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [demo, setDemo] = useState(true);
-  const [joinCode, setJoinCode] = useState("");
+  const [joinCode, setJoinCode] = useState("");\n  const [joinPreview, setJoinPreview] = useState<InvitePreview | null>(null);
   const [createStep, setCreateStep] = useState(1);
   const [createDraft, setCreateDraft] = useState({ name: "", budget: "", drawAt: "", unlimited: false });
   const [chatTab, setChatTab] = useState<"recipient" | "santa">("recipient");
@@ -80,6 +80,22 @@ export default function Home() {
     }
     if (active?.room?.id) setShowRecipient(localStorage.getItem(`santa-revealed-${active.room.id}`) === "1");
   }, []);
+
+  useEffect(() => {
+    if (screen !== "join" || !joinCode.trim() || !initData) { setJoinPreview(null); return; }
+    const code = parseInviteCode(joinCode);
+    let canceled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/invites/${encodeURIComponent(code)}`, { headers: { "x-telegram-init-data": initData } });
+        const info = await response.json();
+        if (canceled) return;
+        if (response.ok) setJoinPreview(info);
+        else { setJoinPreview(null); if (info.code === "ROOM_NOT_FOUND" || info.code === "DRAW_DONE" || info.code === "ROOM_FULL") setNotice(info.code === "DRAW_DONE" ? "Игра уже началась" : info.code === "ROOM_FULL" ? "Комната уже заполнена" : "Ссылка не работает"); }
+      } catch { if (!canceled) setJoinPreview(null); }
+    }, 250);
+    return () => { canceled = true; window.clearTimeout(timer); };
+  }, [screen, joinCode, initData]);
 
   async function loadRooms(auth = initData) {
     try { const res = await fetch("/api/rooms", { headers: { "x-telegram-init-data": auth } }); const json = await res.json(); if (res.ok) setRooms(json.rooms ?? []); }
@@ -207,7 +223,7 @@ export default function Home() {
   function inviteLink(room: Room) { const username = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME; return username ? `https://t.me/${username}?startapp=join-${room.invite_code}` : `Код приглашения: ${room.invite_code}`; }
   async function copyInvite(room: Room) {
     const budget = room.budget_unlimited || !room.gift_budget ? "без ограничений" : `до ${room.gift_budget.toLocaleString("ru-RU")} ₽`;
-    const text = `🎅 Привет! Зову тебя в Тайного Санту «${room.name}».\\nБюджет подарка: ${budget}.\\nЖми на ссылку, заполни вишлист и жди, кому достанется твоё имя 🎁\\n${inviteLink(room)}`;
+    const text = `🎅 Привет! Зову тебя в Тайного Санту «${room.name}».\nБюджет подарка: ${budget}.\\nЖми на ссылку, заполни вишлист и жди, кому достанется твоё имя 🎁\\n${inviteLink(room)}`;
     try { await navigator.clipboard.writeText(text); } catch { const input = document.createElement("textarea"); input.value = text; document.body.append(input); input.select(); const copied = document.execCommand("copy"); input.remove(); if (!copied) (tg() as any)?.openTelegramLink?.(`https://t.me/share/url?url=${encodeURIComponent(inviteLink(room))}&text=${encodeURIComponent(text)}`); }
     (tg() as any)?.HapticFeedback?.notificationOccurred?.("success"); setNotice("Приглашение скопировано. Отправьте его друзьям");
   }
