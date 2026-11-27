@@ -31,6 +31,10 @@ export default function Home() {
   const [chatMessages, setChatMessages] = useState<Array<{ id: string; body: string; created_at: string; mine: boolean }>>([]);
   const [chatText, setChatText] = useState("");
   const [showRecipient, setShowRecipient] = useState(false);
+  const [wishlistMode, setWishlistMode] = useState<"list" | "link">("list");
+  const [wishItems, setWishItems] = useState<Wish[]>([]);
+  const [wishDraft, setWishDraft] = useState<Wish>({ title: "", description: "", product_url: "", price: "" });
+  const [editingWish, setEditingWish] = useState<number | null>(null);
 
   useEffect(() => {
     const app = tg();
@@ -57,6 +61,22 @@ export default function Home() {
     finally { setBusy(false); }
   }
   const allRooms = useMemo(() => demo ? [demoRoom, ...rooms.filter(r => r.id !== "demo")] : rooms, [demo, rooms]);
+
+  function openWishlist() {
+    const wishlist = active?.wishlist;
+    setWishlistMode(wishlist?.wishlist_mode ?? "list");
+    const items = wishlist?.wishes?.length ? wishlist.wishes : wishlist?.title ? [{ title: wishlist.title, description: [wishlist.description, wishlist.color && `Цвет: ${wishlist.color}`, wishlist.size && `Размер: ${wishlist.size}`, wishlist.notes].filter(Boolean).join(". "), product_url: wishlist.product_url, price: wishlist.price }] : [];
+    setWishItems(items); setWishDraft({ title: "", description: "", product_url: "", price: "" }); setEditingWish(null); setScreen("wishlist");
+  }
+
+  function saveWishDraft() {
+    if (!wishDraft.title?.trim()) { setNotice("Напишите, что подарить"); return; }
+    setWishItems(items => {
+      if (editingWish === null) return [...items, { ...wishDraft, title: wishDraft.title.trim() }];
+      return items.map((item, index) => index === editingWish ? { ...wishDraft, title: wishDraft.title.trim() } : item);
+    });
+    setWishDraft({ title: "", description: "", product_url: "", price: "" }); setEditingWish(null); setNotice("Пожелание добавлено");
+  }
 
   async function loadChat(tab: "recipient" | "santa" = chatTab) {
     if (!active || demo || active.room.id.startsWith("demo")) { setChatMessages([]); return; }
