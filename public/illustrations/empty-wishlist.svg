@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 180" role="img" aria-label="Пустая бирка для пожеланий"><style>
+.i-g{fill:var(--ill-green,#1E4A38)}.i-gd{fill:var(--ill-green-deep,#163A2C)}
+.i-r{fill:var(--ill-red,#B02A45)}.i-rd{fill:var(--ill-red-deep,#8C1F36)}
+.i-y{fill:var(--ill-gold,#C9A14A)}.i-c{fill:var(--ill-cream,#FBF3E2)}
+.i-s{fill:var(--ill-soft,#DDE6DA)}.i-l{fill:var(--ill-line,#2A3A31)}
+.i-sl{fill:none;stroke:var(--ill-line,#2A3A31);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.i-sg{fill:none;stroke:var(--ill-gold,#C9A14A);stroke-width:2.5;stroke-linecap:round}
+.i-sc{fill:none;stroke:var(--ill-cream,#FBF3E2);stroke-width:3;stroke-linecap:round}
+.i-sgr{fill:none;stroke:var(--ill-green,#1E4A38);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+</style>
+<ellipse class="i-s" cx="120" cy="162" rx="78" ry="9"/>
+<path class="i-sg" d="M120 20 C112 36 136 44 128 58"/>
+<g transform="rotate(-8 124 100)">
+<path class="i-c" d="M100 60 H148 Q156 60 156 68 V146 Q156 154 148 154 H100 Q92 154 92 146 V68 Q92 60 100 60 Z" stroke="var(--ill-line,#2A3A31)" stroke-width="2.5"/>
+<circle class="i-y" cx="124" cy="76" r="6"/><circle class="i-c" cx="124" cy="76" r="3"/>
+<path class="i-sgr" d="M106 100 H142 M106 114 H136 M106 128 H128" stroke-dasharray="3 6" opacity=".7"/>
+</g>
+<circle class="i-r" cx="168" cy="136" r="16"/><path class="i-sc" d="M168 128 V144 M160 136 H176"/>
+<path class="i-y" d="M72.0,54.0 L73.6,60.4 L80.0,62.0 L73.6,63.6 L72.0,70.0 L70.4,63.6 L64.0,62.0 L70.4,60.4 Z"/><path class="i-y" d="M182.0,68.0 L183.2,72.8 L188.0,74.0 L183.2,75.2 L182.0,80.0 L180.8,75.2 L176.0,74.0 L180.8,72.8 Z"/>
+</svg>
+
