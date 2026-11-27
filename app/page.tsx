@@ -312,7 +312,7 @@ ${inviteLink(room)}`;
     {screen === "closed" && <section className="state-page"><img src="/assets/illustrations/closed-shrug.webp" width="220" height="220" alt=""/><h1>Ссылка не работает</h1><p>Комната могла быть удалена или набор уже закрыт.</p><button className="button button-dark full" onClick={() => setScreen("home")}>К моим комнатам <span>↗</span></button></section>}
 
     {screen === "wishlist" && <section className="form-page"><div className="form-intro"><div className="eyebrow">ПУСТЬ САНТЕ БУДЕТ ПРОЩЕ</div><h1>Немного <em>подсказок.</em></h1><p>Добавьте идеи в список или оставьте ссылку на готовый вишлист.</p></div>
-      <div className="profile-preview"><img src={`/assets/avatars/avatar-${String(avatarPreview).padStart(2, "0")}.webp`} width="84" height="84" alt=""/><span>Ваша аватарка. Её увидят все в комнате.</span></div>
+      <div className="profile-preview wishlist-profile-preview"><img src={`/assets/avatars/avatar-${String(avatarPreview).padStart(2, "0")}.webp`} width="84" height="84" alt=""/><span>Ваша аватарка. Её увидят все в комнате.</span></div>
       <form onSubmit={saveWishlist} className="form-stack">
         <div className="segment-controls"><button type="button" className={wishlistMode === "list" ? "active" : ""} onClick={() => setWishlistMode("list")}>Списком</button><button type="button" className={wishlistMode === "link" ? "active" : ""} onClick={() => setWishlistMode("link")}>Ссылкой</button></div>
         {wishlistMode === "link" ? <label>Ссылка на вишлист<input type="url" name="source_url" value={wishlistUrl} onChange={e => setWishlistUrl(e.target.value)} placeholder="https://…" required/><small>Подойдёт вишлист из любого сервиса или маркетплейса.</small></label> : <>
