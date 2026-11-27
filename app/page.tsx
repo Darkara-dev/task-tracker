@@ -30,12 +30,13 @@ export default function Home() {
   const [initData, setInitData] = useState("");
   const [userName, setUserName] = useState("Санта");
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [roomsLoadError, setRoomsLoadError] = useState("");
   const [active, setActive] = useState<RoomData | null>(null);
   const [screen, setScreen] = useState<"home" | "room" | "wishlist" | "admin" | "create" | "join" | "wait" | "result" | "chat" | "closed">("home");
   const [booting, setBooting] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
-  const [demo, setDemo] = useState(true);
+  const [demo, setDemo] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [joinPreview, setJoinPreview] = useState<InvitePreview | null>(null);
   const [createStep, setCreateStep] = useState(1);
@@ -57,7 +58,7 @@ export default function Home() {
     setInitData(app?.initData ?? "");
     const name = [app?.initDataUnsafe?.user?.first_name, app?.initDataUnsafe?.user?.last_name].filter(Boolean).join(" ");
     if (name) setUserName(name);
-    if (app?.initData) { setDemo(false); void Promise.all([loadRooms(app.initData), new Promise(resolve => window.setTimeout(resolve, 1800))]).finally(() => setBooting(false)); } else { window.setTimeout(() => setBooting(false), 1800); }
+    if (app?.initData) { setDemo(false); void Promise.all([loadRooms(app.initData), new Promise(resolve => window.setTimeout(resolve, 1800))]).finally(() => setBooting(false)); } else { setDemo(new URLSearchParams(window.location.search).get("demo") === "1"); window.setTimeout(() => setBooting(false), 1800); }
     const start = app?.initDataUnsafe?.start_param ?? "";
     const directJoin = start.match(/^join-(.+)$/);
     const deepLink = start.match(/^room_(.+)_(result|chat_(recipient|santa))$/);
@@ -105,8 +106,22 @@ export default function Home() {
   }, [screen, joinCode, initData]);
 
   async function loadRooms(auth = initData) {
-    try { const res = await fetch("/api/rooms", { headers: { "x-telegram-init-data": auth } }); const json = await res.json(); if (res.ok) setRooms(json.rooms ?? []); }
-    catch { setNotice("Не удалось загрузить комнаты"); }
+    if (!auth) { setRoomsLoadError("Откройте приложение через Telegram, чтобы увидеть сохранённые комнаты."); return; }
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const res = await fetch("/api/rooms", { headers: { "x-telegram-init-data": auth } });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? "Не удалось загрузить комнаты");
+        setRooms(json.rooms ?? []);
+        setRoomsLoadError("");
+        return;
+      } catch (error) {
+        if (attempt === 0) { await new Promise(resolve => window.setTimeout(resolve, 700)); continue; }
+        const message = error instanceof Error ? error.message : "Не удалось загрузить комнаты";
+        setRoomsLoadError(message);
+        setNotice(message);
+      }
+    }
   }
   async function openRoom(room: Room) {
     if (demo || room.id === "demo") {
@@ -269,10 +284,10 @@ ${inviteLink(room)}`;
     {screen === "home" && <>
       <section className="hero"><div className="hero-label"><span className="dot" /> ВРЕМЯ ДАРИТЬ ЧУДЕСА</div><img className="hero-illustration" src="/assets/illustrations/home-tree.webp" width="300" height="245" alt="" /><h1>Тайный Санта</h1><p>Тяните имена, дарите подарки и храните секрет до праздника</p><button className="button button-dark hero-cta" onClick={() => { setCreateStep(1); setCreateDraft({ name: "", budget: "", drawAt: "", unlimited: false }); setAvatarPreview(Math.floor(Math.random() * 32) + 1); setWishlistMode("list"); setWishlistUrl(""); setWishItems([]); setWishDraft({ title: "", description: "", product_url: "", price: "" }); setScreen("create"); }}>Создать комнату <span>＋</span></button><button className="button button-light full" onClick={() => { setJoinCode(""); setAvatarPreview(Math.floor(Math.random() * 32) + 1); setWishlistMode("list"); setWishlistUrl(""); setWishItems([]); setWishDraft({ title: "", description: "", product_url: "", price: "" }); setScreen("join"); }}>Присоединиться к комнате <span>↗</span></button></section>
       <section className="rooms-section"><div className="section-heading"><div><div className="eyebrow">ВАШИ ИГРЫ</div><h2>Комнаты <span className="count">{allRooms.length.toString().padStart(2, "0")}</span></h2></div><button className="icon-button" onClick={() => { setJoinCode(""); setAvatarPreview(Math.floor(Math.random() * 32) + 1); setWishlistMode("list"); setWishlistUrl(""); setWishItems([]); setWishDraft({ title: "", description: "", product_url: "", price: "" }); setScreen("join"); }} aria-label="Ввести код комнаты">↗</button></div>
-        {allRooms.length ? <div className="room-list">{allRooms.map((room, i) => <button className="room-row" key={room.id} onClick={() => void openRoom(room)}><span className={`room-icon room-icon-${i % 3}`}>{["✳", "❄", "✷"][i % 3]}</span><span className="room-copy"><strong>{room.name}</strong><small>{room.gift_budget ? `Бюджет до ${room.gift_budget.toLocaleString("ru-RU")} ₽` : "Без ограничения бюджета"} · {room.status === "drawn" ? "Распределение готово" : "Игра идёт"}</small></span><span className="room-arrow">↗</span></button>)}</div> : <div className="empty"><img className="empty-illustration" src="/assets/illustrations/home-tree.webp" width="180" height="150" alt="" /><strong>Пока тихо</strong><p>Создайте свою первую комнату или присоединитесь к друзьям по приглашению.</p></div>}
+        {allRooms.length ? <div className="room-list">{allRooms.map((room, i) => <button className="room-row" key={room.id} onClick={() => void openRoom(room)}><span className={`room-icon room-icon-${i % 3}`}>{["✳", "❄", "✷"][i % 3]}</span><span className="room-copy"><strong>{room.name}</strong><small>{room.gift_budget ? `Бюджет до ${room.gift_budget.toLocaleString("ru-RU")} ₽` : "Без ограничения бюджета"} · {room.status === "drawn" ? "Распределение готово" : "Игра идёт"}</small></span><span className="room-arrow">↗</span></button>)}</div> : !initData && !demo ? <div className="empty"><strong>Откройте приложение в Telegram</strong><p>Ваши сохранённые комнаты появятся после запуска через бота.</p></div> : roomsLoadError ? <div className="empty"><strong>Не удалось загрузить комнаты</strong><p>{roomsLoadError}</p><button className="button button-light full" onClick={() => void loadRooms()}>Попробовать ещё раз</button></div> : <div className="empty"><img className="empty-illustration" src="/assets/illustrations/home-tree.webp" width="180" height="150" alt="" /><strong>Пока тихо</strong><p>Создайте свою первую комнату или присоединитесь к друзьям по приглашению.</p></div>}
       </section>
       
-      {demo && <button className="demo-note" onClick={() => setNotice("Демонстрация интерфейса. Для реальной игры подключите Supabase и Telegram-бота.")}>Предпросмотр интерфейса <span>ⓘ</span></button>}
+      {demo && <button className="demo-note" onClick={() => setNotice("Демо-режим для просмотра. Откройте бота в Telegram, чтобы играть.")}>Демо-режим <span>ⓘ</span></button>}
     </>}
 
     {screen === "room" && active && <section className="content-page">
