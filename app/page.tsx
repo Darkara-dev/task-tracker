@@ -6,7 +6,8 @@ declare global { interface Window { Telegram?: { WebApp?: { initData: string; in
 
 type Room = { id: string; name: string; gift_budget: number; budget_unlimited?: boolean; draw_at?: string; status: string; invite_code: string; role?: string };
 type Player = { telegram_id: number; full_name: string; role: string; avatar_id?: number };
-type Wish = { id?: string; title: string; description?: string; product_url?: string; price?: string | number; position?: number };\ntype Wishlist = { wishlist_mode?: "list" | "link"; source_url?: string; wishes?: Wish[]; title?: string; description?: string; color?: string; size?: string; notes?: string; product_url?: string; price?: string };
+type Wish = { id?: string; title: string; description?: string; product_url?: string; price?: string | number; position?: number };
+type Wishlist = { wishlist_mode?: "list" | "link"; source_url?: string; wishes?: Wish[]; title?: string; description?: string; color?: string; size?: string; notes?: string; product_url?: string; price?: string };
 type RoomData = { room: Room; players: Player[]; wishlist?: Wishlist; recipient?: { full_name: string; avatar_id?: number; wishlist?: Wishlist } | null; exclusions: Array<[number, number]>; role: string };
 
 const demoRoom: Room = { id: "demo", name: "Новогоднее чудо", gift_budget: 2500, draw_at: "2026-12-15", status: "open", invite_code: "sneg-2026", role: "admin" };
@@ -25,7 +26,11 @@ export default function Home() {
   const [demo, setDemo] = useState(true);
   const [joinCode, setJoinCode] = useState("");
   const [createStep, setCreateStep] = useState(1);
-  const [createDraft, setCreateDraft] = useState({ name: "", budget: "", drawAt: "", unlimited: false });\n  const [chatTab, setChatTab] = useState<"recipient" | "santa">("recipient");\n  const [chatMessages, setChatMessages] = useState<Array<{ id: string; body: string; created_at: string; mine: boolean }>>([]);\n  const [chatText, setChatText] = useState("");\n  const [showRecipient, setShowRecipient] = useState(false);
+  const [createDraft, setCreateDraft] = useState({ name: "", budget: "", drawAt: "", unlimited: false });
+  const [chatTab, setChatTab] = useState<"recipient" | "santa">("recipient");
+  const [chatMessages, setChatMessages] = useState<Array<{ id: string; body: string; created_at: string; mine: boolean }>>([]);
+  const [chatText, setChatText] = useState("");
+  const [showRecipient, setShowRecipient] = useState(false);
 
   useEffect(() => {
     const app = tg();
