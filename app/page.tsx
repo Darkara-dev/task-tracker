@@ -261,7 +261,7 @@ ${inviteLink(room)}`;
   const title = screen === "room" && active ? active.room.name : screen === "wishlist" ? "Мой вишлист" : screen === "admin" ? "Запретные пары" : screen === "create" ? "Новая комната" : screen === "join" ? "Войти в игру" : screen === "result" ? "Кому я дарю" : screen === "chat" ? "Анонимный чат" : screen === "wait" ? "Жеребьёвка" : "Тайный Санта";
 
   return <main className="shell">
-    <header className="topbar"><button className="brand" onClick={() => setScreen("home")} aria-label="На главную"><img className="brand-mark" src="/assets/illustrations/app-icon.webp" alt="" /><span>Тайный Санта</span></button><button className="avatar" aria-label="Профиль пользователя">{userName.slice(0, 1).toUpperCase()}</button></header>
+    <header className="topbar"><button className="avatar" aria-label="Профиль пользователя">{userName.slice(0, 1).toUpperCase()}</button></header>
     {screen !== "home" && <div className="subnav"><button className="back" onClick={() => setScreen(["wishlist", "admin", "chat", "result", "wait"].includes(screen) ? "room" : "home")}>←</button><span>{title}</span><span className="small-mark">✳</span></div>}
 
     {booting && <div className="splash-screen" role="status"><img src="/assets/illustrations/santa-shh.webp" width="210" height="210" alt="" /><h1>Тайный Санта</h1><p>{tg()?.initDataUnsafe?.start_param ? "Открываем приглашение…" : "Тсс… готовим подарки"}</p><div className="candy-progress"><span/></div><small>Загружаем приложение</small></div>}
