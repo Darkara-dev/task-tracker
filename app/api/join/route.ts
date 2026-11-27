@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       if (code) return Response.json({ error: code, code }, { status: code === "ROOM_NOT_FOUND" ? 404 : 409 });
       throw error;
     }
-    const { data: avatarId, error: avatarError } = await db.rpc("assign_santa_avatar", { p_room_id: roomId, p_telegram_id: user.id });
+    const { data: avatarId, error: avatarError } = await db.rpc("assign_santa_avatar", { p_room_id: roomId, p_telegram_id: user.id, p_current: Number(body.avatarId) || null });
     if (avatarError) {
       if ((avatarError.message ?? "").includes("ROOM_FULL")) return Response.json({ error: "ROOM_FULL", code: "ROOM_FULL" }, { status: 409 });
       throw avatarError;
