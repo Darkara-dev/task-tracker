@@ -13,7 +13,7 @@ type RoomData = { room: Room; players: Player[]; wishlist?: Wishlist; recipient?
 
 const demoRoom: Room = { id: "demo", name: "Новогоднее чудо", gift_budget: 2500, draw_at: "2026-12-15", status: "open", invite_code: "sneg-2026", role: "admin" };
 const demoPlayers = ["Аня Лебедева", "Миша Котов", "Саша Орлова", "Дима Волков"].map((full_name, i) => ({ telegram_id: i + 1, full_name, role: i === 0 ? "admin" : "player" }));
-const tg = () => window.Telegram?.WebApp;
+const tg = () => typeof window === "undefined" ? undefined : window.Telegram?.WebApp;
 function parseInviteCode(value: string) {
   const raw = value.trim();
   try {
