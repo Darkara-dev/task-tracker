@@ -28,8 +28,13 @@ export async function POST(request: NextRequest) {
     if (avatarError) throw avatarError;
     if (body.wishlist) {
       const wish = body.wishlist;
-      const { error: wishlistError } = await db.from("santa_wishlists").upsert({ room_id: roomId, telegram_id: user.id, wishlist_mode: wish.wishlist_mode === "link" ? "link" : "list", source_url: wish.source_url || null }, { onConflict: "room_id,telegram_id" });
+      const mode = wish.wishlist_mode === "link" ? "link" : "list";
+      const sourceUrl = String(wish.source_url ?? "").trim();
+      if (mode === "link" && sourceUrl && !/^https?:\\/\\//i.test(sourceUrl)) return fail(new Error("Ссылка должна начинаться с https://"));
+      const { error: wishlistError } = await db.from("santa_wishlists").upsert({ room_id: roomId, telegram_id: user.id, wishlist_mode: mode, source_url: mode === "link" ? sourceUrl || null : null }, { onConflict: "room_id,telegram_id" });
       if (wishlistError) throw wishlistError;
+      const items = (Array.isArray(wish.wishes) ? wish.wishes : []).map((item: any, position: number) => ({ room_id: roomId, telegram_id: user.id, title: String(item.title ?? "").trim(), description: String(item.description ?? "").trim() || null, product_url: String(item.product_url ?? "").trim() || null, price: item.price ? Number(item.price) : null, position })).filter((item: any) => item.title).slice(0, 30);
+      if (items.length) { const { error: itemsError } = await db.from("santa_wishes").insert(items); if (itemsError) throw itemsError; }
     }
     const { data: room, error: roomError } = await db.from("santa_rooms").select("id, name, gift_budget, budget_unlimited, draw_at, status, invite_code").eq("id", roomId).single();
     if (roomError) throw roomError;
