@@ -147,6 +147,15 @@ begin
           and e.first_id = least(participants[i], recipients[i]) and e.second_id = greatest(participants[i], recipients[i])
       ) then valid_draw := false; exit; end if;
     end loop;
+    if valid_draw and exists (
+      select 1
+      from generate_subscripts(participants, 1) as a(i)
+      join generate_subscripts(participants, 1) as b(j) on a.i < b.j
+      where recipients[a.i] = participants[b.j]
+        and recipients[b.j] = participants[a.i]
+    ) then
+      valid_draw := false;
+    end if;
     if valid_draw then
       insert into public.santa_assignments(room_id, giver_id, recipient_id)
       select p_room_id, participants[s.i], recipients[s.i] from generate_subscripts(participants, 1) as s(i);
