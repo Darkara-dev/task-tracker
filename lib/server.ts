@@ -11,6 +11,15 @@ export function supabase() {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
+export function isHttpUrl(value: string) {
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function telegramUser(request: NextRequest): TelegramUser {
   const initData = request.headers.get("x-telegram-init-data");
   const token = process.env.TELEGRAM_BOT_TOKEN;
