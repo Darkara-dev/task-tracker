@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { fail, supabase, telegramUser } from "@/lib/server";
+import { fail, isHttpUrl, supabase, telegramUser } from "@/lib/server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -7,6 +7,16 @@ export async function POST(request: NextRequest) {
     const fullName = String(body.fullName ?? "").trim();
     if (!code) return Response.json({ error: "Не похоже на ссылку-приглашение", code: "ROOM_NOT_FOUND" }, { status: 404 });
     if (fullName.split(/\s+/).length < 2) return fail(new Error("Укажите имя и фамилию"));
+    const wishInput = body.wishlist;
+    if (wishInput) {
+      const sourceUrl = String(wishInput.source_url ?? "").trim();
+      if (wishInput.wishlist_mode === "link" && sourceUrl && !isHttpUrl(sourceUrl)) return fail(new Error("Укажите полный адрес ссылки, начиная с https://"));
+      const items = Array.isArray(wishInput.wishes) ? wishInput.wishes : [];
+      if (items.some((item: any) => {
+        const url = String(item.product_url ?? "").trim();
+        return url && !isHttpUrl(url);
+      })) return fail(new Error("Ссылка на товар должна быть полным адресом с https://"));
+    }
     const db = supabase();
     const { data: roomId, error } = await db.rpc("join_santa_room", { p_invite_code: code, p_telegram_id: user.id, p_full_name: fullName });
     if (error) {
@@ -24,7 +34,7 @@ export async function POST(request: NextRequest) {
       const wish = body.wishlist;
       const mode = wish.wishlist_mode === "link" ? "link" : "list";
       const sourceUrl = String(wish.source_url ?? "").trim();
-      if (mode === "link" && sourceUrl && !/^https?:\/\//i.test(sourceUrl)) return fail(new Error("Ссылка должна начинаться с https://"));
+      if (mode === "link" && sourceUrl && !isHttpUrl(sourceUrl)) return fail(new Error("Укажите полный адрес ссылки, начиная с https://"));
       const { error: wishlistError } = await db.from("santa_wishlists").upsert({ room_id: roomId, telegram_id: user.id, wishlist_mode: mode, source_url: mode === "link" ? sourceUrl || null : null }, { onConflict: "room_id,telegram_id" });
       if (wishlistError) throw wishlistError;
       const items = (Array.isArray(wish.wishes) ? wish.wishes : []).map((item: any, position: number) => ({ room_id: roomId, telegram_id: user.id, title: String(item.title ?? "").trim(), description: String(item.description ?? "").trim() || null, product_url: String(item.product_url ?? "").trim() || null, price: item.price ? Number(item.price) : null, position })).filter((item: any) => item.title).slice(0, 30);
