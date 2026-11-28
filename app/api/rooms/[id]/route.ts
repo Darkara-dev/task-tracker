@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { fail, sendTelegramNotification, supabase, telegramUser } from "@/lib/server";
+import { fail, isHttpUrl, sendTelegramNotification, supabase, telegramUser } from "@/lib/server";
 
 type WishInput = { title?: string; description?: string; product_url?: string; price?: string | number };
 
@@ -56,7 +56,16 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       const wish = body.wishlist ?? {};
       const mode = wish.wishlist_mode === "link" ? "link" : "list";
       const wishlistUrl = String(wish.source_url ?? "").trim();
-      if (mode === "link" && wishlistUrl && !/^https?:\/\//i.test(wishlistUrl)) return fail(new Error("Ссылка должна начинаться с https://"));
+      if (mode === "link" && wishlistUrl && !isHttpUrl(wishlistUrl)) return fail(new Error("Укажите полный адрес ссылки, начиная с https://"));
+      const items: WishInput[] = Array.isArray(wish.wishes) ? wish.wishes : [];
+      const invalidProductLink = items.some(item => {
+        const url = String(item.product_url ?? "").trim();
+        return url && !isHttpUrl(url);
+      });
+      const directProductUrl = String(wish.product_url ?? "").trim();
+      if (invalidProductLink || (directProductUrl && !isHttpUrl(directProductUrl))) {
+        return fail(new Error("Ссылка на товар должна быть полным адресом с https://"));
+      }
       const { error } = await db.from("santa_wishlists").upsert({
         room_id: id, telegram_id: user.id, wishlist_mode: mode,
         source_url: mode === "link" ? wishlistUrl || null : null,
@@ -65,7 +74,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         product_url: wish.product_url || null, price: wish.price || null,
       }, { onConflict: "room_id,telegram_id" });
       if (error) throw error;
-      const items: WishInput[] = Array.isArray(wish.wishes) ? wish.wishes : [];
       const { error: deleteError } = await db.from("santa_wishes").delete().eq("room_id", id).eq("telegram_id", user.id);
       if (deleteError) throw deleteError;
       const clean = items.map((item, position) => ({ room_id: id, telegram_id: user.id, title: String(item.title ?? "").trim(), description: String(item.description ?? "").trim() || null, product_url: String(item.product_url ?? "").trim() || null, price: item.price ? Number(item.price) : null, position })).filter(item => item.title).slice(0, 30);
